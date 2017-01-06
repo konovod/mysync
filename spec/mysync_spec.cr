@@ -3,7 +3,7 @@ require "./spec_helper"
 describe MySync do
 
   srv = MySync::Server.new
-
+   
   it "test sum" do
     virtual_server(srv) do |cli|
       data = StaticArray[1u8,2u8,3u8,4u8]
