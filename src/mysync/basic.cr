@@ -2,63 +2,51 @@
 
 module MySync
 
-  enum Commands
-    PING = 1
-    TST_SUM = 2
-  end
+alias ClientID = Int32
 
+enum Commands
+  LOGIN = 1
+  ECHO = 2
+end
 
-  class Server
+  abstract class Server
 
     def initialize
-
+      #@logins = Hash.new(String, ClientID).new()
+      #@clients = Hash(ClientID, ClientData).new()
     end
+
+    abstract def send_static(io : IO)
+    abstract def recv_static(io : IO)
 
     def process_request(io : IO)
-      cmd = Commands.new(io.read_bytes(Int32))
-      size = io.read_bytes(UInt32)
-      return unless cmd && size
-      packet = Bytes.new(size)
-      io.read_fully(packet)
-      case cmd
-        when Commands::PING
-          process_ping(io, packet)
-        when Commands::TST_SUM
-          process_sum(io, packet)
-      end
+      recv_static(io)
+      send_static(io)
     end
-
-    def process_ping(io : IO, packet : Bytes)
-      io.write_bytes(packet.size)
-      io.write(packet)
-    end
-    def process_sum(io : IO, packet : Bytes)
-      io.write_byte(packet.sum)
-    end
-
 
   end
 
-  class Client
+  module CachedIO
+    include IO
+    abstract def perform : Bool
+  end
 
-    def initialize(@io : IO)
+  abstract class Client
+
+    def initialize(@io : CachedIO)
     end
 
-    def test_echo(data : Bytes)
-      @io.write_bytes(Commands::PING.to_i)
-      @io.write_bytes(data.size)
-      @io.write(data)
-      return false unless @io.read_bytes(Int32) == data.size
-      data2 = Bytes.new(data.size)
-      @io.read_fully(data2)
-      data==data2
-    end
+    abstract def send_static
+    abstract def recv_static
 
-    def test_sum(data : Bytes)
-      @io.write_bytes(Commands::TST_SUM.to_i)
-      @io.write_bytes(data.size)
-      @io.write(data)
-      return @io.read_byte
+    def do_link()
+      return unless @io
+      send_static
+      #TODO - asyncs
+      return unless @io.perform
+      recv_static
+      #TODO - sync lists
+      #TODO - asyncs
     end
 
   end

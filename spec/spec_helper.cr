@@ -1,7 +1,7 @@
 require "spec"
 require "../src/mysync"
+require "../src/mysync/basic"
 require "socket"
-
 
 class SimpleSliceIO
   include IO
@@ -23,16 +23,15 @@ class SimpleSliceIO
 end
 
 class VirtualIO
-  include IO
+  include MySync::CachedIO
   def initialize(@cliio : IO, @srvio : IO, @server : MySync::Server)
-    @processed = false
+  end
+
+  def perform
+    @server.process_request(@srvio)
   end
 
   def read(slice : Bytes)
-    unless @processed
-      @processed = true
-      @server.process_request(@srvio)
-    end
     return @cliio.read(slice)
   end
 
@@ -42,14 +41,13 @@ class VirtualIO
 
 end
 
-def virtual_server(srv : MySync::Server, &block)
-  #pipe is useless at all
+def virtual_connect(srv : MySync::Server)
+  #pipe is useless at all - sync and no binary
   # IO.pipe do |x,y|
   #   yield(x,y)
   # end
   data = Bytes.new(1000)
   io1 = SimpleSliceIO.new(data)
   io2 = SimpleSliceIO.new(data)
-  yield(MySync::Client.new(VirtualIO.new(io1,io2,srv)))
-
+  VirtualIO.new(io1,io2,srv)
 end
