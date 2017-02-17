@@ -1,75 +1,109 @@
 require "./spec_helper"
+require "cannon"
 
+struct TestClientInput
+  include Cannon::Auto
+  property num : Int32
+  property data : String
 
-class ClientStaticSpec < MySync::Client
-  setter to_send : Int32 = 0
-  getter was_recvd : Int32 = 0
-  setter recv_count : Int32 = 1
-  setter send_count : Int32 = 1
-  def send_static
-    @send_count.times do
-      @io.write_bytes(@to_send)
-    end
+  def initialize
+    @num = -1
+    @data = ""
   end
-  def recv_static
-    @was_recvd = 0
-    @recv_count.times do
-      @was_recvd += @io.read_bytes(Int32)
-    end
+
+  def initialize(@num, @data)
   end
 end
 
-class ServerStaticSpec < MySync::Server
-  setter to_send : Int32 = 0
-  getter was_recvd : Int32 = 0
-  setter recv_count : Int32 = 1
-  setter send_count : Int32 = 1
-  def send_static(io : IO)
-    @send_count.times do
-      io.write_bytes(@to_send)
-    end
+struct TestServerOutput
+  include Cannon::Auto
+  property all_data
+  def initialize()
+   @all_data = StaticArray(String, 16).new("")
   end
-  def recv_static(io : IO)
-    @was_recvd = 0
-    @recv_count.times do
-      @was_recvd += io.read_bytes(Int32)
-    end
+  def initialize(@all_data)
   end
+
 end
 
 
-describe ClientStaticSpec do
+def log_srv(s : String)
+  puts "SERVER: #{s}"
+end
 
-  srv = ServerStaticSpec.new()
-  cli = ClientStaticSpec.new(virtual_connect(srv))
+def log_cli(s : String)
+  puts "CLIENT: #{s}"
+end
 
-  it "test send" do
-     cli.to_send = 123
-     cli.do_link
-     srv.was_recvd.should eq 123
+class TestUserContext < MySync::UserContext(TestClientInput, TestServerOutput)
+
+  def on_disconnect
+    log_srv "user disconnected: #{@user}"
   end
-  it "test recv" do
-     srv.to_send = 456
-     cli.do_link
-     cli.was_recvd.should eq 456
+  def on_received_sync
+    log_srv "received: #{@remote_sync}"
+    #@server.state.all_data[@remote_sync.num] = @remote_sync.str if @remote_sync.num >= 0
   end
-  it "test sizes" do
-     cli.send_count = 2
-     srv.recv_count = 2
-     srv.send_count = 3
-     cli.recv_count = 3
-     cli.do_link
-     srv.was_recvd.should eq 123*2
-     cli.was_recvd.should eq 456*3
+  def before_sending_sync
+    @local_sync = @server.state
+    log_srv "sending: #{@local_sync}"
   end
-  pending "test wrong sizes" do
-     cli.send_count = 2
-     srv.recv_count = 3
-     srv.send_count = 2
-     cli.recv_count = 3
-     expect_raises() do
-       cli.do_link
-     end
+
+  def initialize(aserver, auser)
+    super(aserver, auser)
+  end
+
+end
+
+class TestServer < MySync::Server(TestClientInput, TestServerOutput)
+  property state = TestServerOutput.new
+
+  def on_login(user)
+    log_srv "logged in: #{user}"
+    return TestUserContext.new(self, user)
+  end
+
+  def on_register(user)
+    log_srv "registered: #{user}"
+    return TestUserContext.new(self, user)
+  end
+
+end
+
+
+class TestClient < MySync::Client(TestClientInput, TestServerOutput)
+
+  def on_connected(user : MySync::UserID)
+    log_cli "logged in: #{user}"
+  end
+
+  def on_received_sync
+    log_cli "received"
+  end
+
+  def before_sending_sync
+
+  end
+
+
+end
+
+
+
+describe "basic client\server" do
+  srv = TestServer.new
+  cli = TestClient.new
+  srv_inst = srv.on_login(2)
+  cli.on_connected(2)
+
+  it "works" do
+
+  end
+
+  it "parse packets when passed directly" do
+    n = cli.process_sending
+    srv_inst.package_received.copy_from(cli.package_tosend.to_unsafe, n)
+    srv_inst.process_receive
   end
 
 

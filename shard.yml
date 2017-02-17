@@ -2,8 +2,14 @@ name: mysync
 version: 0.1.0
 
 authors:
-  - Your Name <you@example.com>
+  - Andrey Konovod <konovod@gmail.com>
 
-crystal: 0.20.3
+dependencies:
+  monocypher:
+    github: konovod/monocypher
+  cannon:
+    github: Papierkorb/cannon
 
-license: MIT
+crystal: 0.20.5
+
+license: GPL-3.0

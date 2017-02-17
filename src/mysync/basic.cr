@@ -1,56 +1,71 @@
-
+require "cannon"
 
 module MySync
 
-alias ClientID = Int32
+alias UserID = Int32
 
-enum Commands
-  LOGIN = 1
-  ECHO = 2
+@[Packed]
+struct PacketHeader
+  include Cannon::FastAuto
+  property signature : Int32
+  property sequence : UInt16
+  property ack : UInt16
+  property ack_mask : UInt32
+  def initialize
+    @signature = 0
+    @sequence = 0u16
+    @ack = 0u16
+    @ack_mask = 0u32
+  end
 end
 
-  abstract class Server
+PACKAGE_SIZE = 1024
 
-    def initialize
-      #@logins = Hash.new(String, ClientID).new()
-      #@clients = Hash(ClientID, ClientData).new()
-    end
 
-    abstract def send_static(io : IO)
-    abstract def recv_static(io : IO)
+abstract class EndPoint(LocalSync, RemoteSync)
+  property local_sync : LocalSync
+  property remote_sync : RemoteSync
 
-    def process_request(io : IO)
-      recv_static(io)
-      send_static(io)
-    end
+  getter package_received
+  getter package_tosend
 
+  def initialize
+    @local_sync = LocalSync.new
+    @remote_sync = RemoteSync.new
+    @package_received = Bytes.new(PACKAGE_SIZE)
+    @io_received = IO::Memory.new(@package_received)
+    @package_tosend = Bytes.new(PACKAGE_SIZE)
+    @io_tosend = IO::Memory.new(@package_tosend)
   end
 
-  module CachedIO
-    include IO
-    abstract def perform : Bool
+  abstract def on_received_sync
+  abstract def before_sending_sync
+
+  def process_receive
+    @io_received.rewind
+    header = Cannon.decode @io_received, PacketHeader
+    #TODO - process header
+    @remote_sync = Cannon.decode @io_received, RemoteSync
+    on_received_sync
+    #TODO - process async
   end
 
-  abstract class Client
-
-    def initialize(@io : CachedIO)
-    end
-
-    abstract def send_static
-    abstract def recv_static
-
-    def do_link()
-      return unless @io
-      send_static
-      #TODO - asyncs
-      return unless @io.perform
-      recv_static
-      #TODO - sync lists
-      #TODO - asyncs
-    end
-
+  def process_sending : Int32
+    @io_tosend.rewind
+    #TODO - make header
+    header = PacketHeader.new
+    Cannon.encode @io_tosend, header
+    before_sending_sync
+    Cannon.encode @io_tosend, @local_sync
+    #TODO - process async
+    return @io_tosend.pos
   end
+end
 
+
+# abstract class AsyncCommand
+#   abstract def perform(user : UserContext)
+# end
 
 
 end
