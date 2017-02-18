@@ -1,17 +1,15 @@
 require "cannon"
 
-
 struct StaticArray(T, N)
   def to_cannon_io(io)
     if ::Cannon.simple?( {{ T }})
       me = self
-      io.write pointerof(me).as(UInt8*).to_slice(sizeof(typeof(me)))
+      io.write pointerof(me).as(UInt8*).to_slice(N * sizeof(T))
     else
       N.times do |index|
         ::Cannon.encode(io, self[index])
       end
     end
-
     io
   end
 
@@ -24,5 +22,6 @@ struct StaticArray(T, N)
         ary[index] = ::Cannon.decode(io, T)
       end
     end
+    ary
   end
 end

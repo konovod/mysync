@@ -102,6 +102,28 @@ def direct_xchange(sender, receiver)
   receiver.process_receive
 end
 
+describe "additions to cannon" do
+  io = IO::Memory.new(100)
+  it "StaticArray of ints" do
+    data = StaticArray(Int32, 16).new(15)
+    Cannon.encode(io, data)
+    io.rewind
+    data2 = Cannon.decode(io, typeof(data))
+    io.rewind
+    data2.should eq data
+  end
+  it "StaticArray of strings" do
+    data = StaticArray(String, 16).new("15")
+    Cannon.encode(io, data)
+    io.rewind
+    data2 = Cannon.decode(io, typeof(data))
+    io.rewind
+    data2.should eq data
+  end
+
+end
+
+
 describe "basic client/server" do
   srv = TestServer.new
   cli = TestClient.new
@@ -118,7 +140,7 @@ describe "basic client/server" do
 
     direct_xchange(cli, srv_inst)
     srv.state.all_data[5].should eq "hello"
-    # direct_xchange(srv_inst, cli)
+    direct_xchange(srv_inst, cli)
     # cli.remote_sync.all_data[5].should eq "hello"
   end
   it "update seq_iq" do
