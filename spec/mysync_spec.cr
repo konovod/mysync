@@ -96,9 +96,13 @@ class TestClient < MySync::Client(TestClientInput, TestServerOutput)
 
 end
 
+def direct_xchange(sender, receiver)
+  n = sender.process_sending
+  receiver.package_received.copy_from(sender.package_tosend.to_unsafe, n)
+  receiver.process_receive
+end
 
-
-describe "basic client\server" do
+describe "basic client/server" do
   srv = TestServer.new
   cli = TestClient.new
   srv_inst = srv.on_login(2)
@@ -112,10 +116,18 @@ describe "basic client\server" do
     cli.local_sync.data = "hello"
     cli.local_sync.num = 5
 
-    n = cli.process_sending
-    srv_inst.package_received.copy_from(cli.package_tosend.to_unsafe, n)
-    srv_inst.process_receive
+    direct_xchange(cli, srv_inst)
     srv.state.all_data[5].should eq "hello"
+    # direct_xchange(srv_inst, cli)
+    # cli.remote_sync.all_data[5].should eq "hello"
+  end
+  it "update seq_iq" do
+    # cli.local_seq = 5
+    # cli.remote_seq = 15
+    # srv_inst.local_seq = 18
+    # srv_inst.remote_seq = 7
+
+
   end
 
 

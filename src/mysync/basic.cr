@@ -3,28 +3,32 @@ require "cannon"
 module MySync
 
 alias UserID = Int32
+alias Sequence = UInt16
+alias AckMask = UInt32
+
+PACKAGE_SIZE = 1024
+RIGHT_SIGN = 0xC4AC7BE
+
+
+
 
 @[Packed]
 struct PacketHeader
   include Cannon::FastAuto
   property signature : Int32
-  property sequence : UInt16
-  property ack : UInt16
-  property ack_mask : UInt32
-  def initialize
-    @signature = 0
-    @sequence = 0u16
-    @ack = 0u16
-    @ack_mask = 0u32
+  property sequence : Sequence
+  property ack : Sequence
+  property ack_mask : AckMask
+  def initialize(@sequence, @ack, @ack_mask)
+    @signature = RIGHT_SIGN
   end
 end
-
-PACKAGE_SIZE = 1024
-
 
 abstract class EndPoint(LocalSync, RemoteSync)
   property local_sync : LocalSync
   property remote_sync : RemoteSync
+  property local_seq : Sequence
+  property remote_seq : Sequence
 
   getter package_received
   getter package_tosend
@@ -36,6 +40,8 @@ abstract class EndPoint(LocalSync, RemoteSync)
     @io_received = IO::Memory.new(@package_received)
     @package_tosend = Bytes.new(PACKAGE_SIZE)
     @io_tosend = IO::Memory.new(@package_tosend)
+    @local_seq = 0u16
+    @remote_seq = 0u16
   end
 
   abstract def on_received_sync
@@ -44,7 +50,14 @@ abstract class EndPoint(LocalSync, RemoteSync)
   def process_receive
     @io_received.rewind
     header = Cannon.decode @io_received, PacketHeader
-    #TODO - process header
+    return unless header.signature == RIGHT_SIGN
+    return if header.sequence == @remote_seq
+    if @remote_seq < header.sequence
+      @remote_seq = header.sequence
+      #TODO - process own ack_mask
+    else
+    end
+    #TODO - process packet acks
     @remote_sync = Cannon.decode @io_received, RemoteSync
     on_received_sync
     #TODO - process async
@@ -52,8 +65,9 @@ abstract class EndPoint(LocalSync, RemoteSync)
 
   def process_sending : Int32
     @io_tosend.rewind
-    #TODO - make header
-    header = PacketHeader.new
+    #TODO - fill ack_mask
+    @local_seq += 1
+    header = PacketHeader.new(@local_seq, @remote_seq, 0u32)
     Cannon.encode @io_tosend, header
     before_sending_sync
     Cannon.encode @io_tosend, @local_sync
