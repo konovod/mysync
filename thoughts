@@ -1,19 +1,7 @@
 
 
-declare_server(ChessServer, client_sync : ChessTurn, server_sync : ChessBoard, async_commands: {})
+usage example:
 
+srv = TestServer.new
 
-class ChessUser < UserContext
-  def on_disconnect
-  def on_received_static(io : IO)
-  def on_sending_static(io : IO)
-
-end
-
-
-class ChessServer
-  def on_login(user : UserID) : UserContext?
-  def on_register(user : UserID) : UserContext?
-end
-
-
+udp_srv = UDPServer.new(srv, 12001)

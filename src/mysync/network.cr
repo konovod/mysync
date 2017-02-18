@@ -1,19 +1,15 @@
-
+require "./basic_client"
+require "./basic_server"
 
 module MySync
 
+class UDPServer
 
-class UDPClientIO
-  include IO
+  def initialize(@port)
 
-  def initialize(@udp : UDPSocket)
   end
 
-  def read(slice : Bytes)
-    return @udp.read(slice)
-  end
-
-  def write(slice : Bytes)
+  def listen_loop
     
   end
 

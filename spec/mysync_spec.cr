@@ -26,25 +26,6 @@ struct TestServerOutput
 
 end
 
-class SpecLogger
-  @@events = [] of String
-
-  def self.log_srv(s : String)
-    @@events << "SERVER: #{s}"
-  end
-
-  def self.log_cli(s : String)
-    @@events << "CLIENT: #{s}"
-  end
-
-  def self.dump_events
-    r = @@events.clone
-    @@events.clear
-    r
-  end
-
-end
-
 class TestUserContext < MySync::UserContext(TestClientInput, TestServerOutput)
 
   def on_disconnect
@@ -71,7 +52,7 @@ class TestServer < MySync::Server(TestClientInput, TestServerOutput)
     return TestUserContext.new(self, user)
   end
 
-  def on_register(user)
+  def on_register(user, data)
     SpecLogger.log_srv "registered: #{user}"
     return TestUserContext.new(self, user)
   end
@@ -81,8 +62,11 @@ end
 
 class TestClient < MySync::Client(TestClientInput, TestServerOutput)
 
+  getter! user : MySync::UserID
+
   def on_connected(user : MySync::UserID)
     SpecLogger.log_cli "logged in: #{user}"
+    @user = user
   end
 
   def on_received_sync
@@ -102,32 +86,17 @@ def direct_xchange(sender, receiver)
   receiver.process_receive
 end
 
-describe "additions to cannon" do
-  io = IO::Memory.new(100)
-  it "StaticArray of ints" do
-    data = StaticArray(Int32, 16).new(15)
-    Cannon.encode(io, data)
-    io.rewind
-    data2 = Cannon.decode(io, typeof(data))
-    io.rewind
-    data2.should eq data
-  end
-  it "StaticArray of strings" do
-    data = StaticArray(String, 16).new("15")
-    Cannon.encode(io, data)
-    io.rewind
-    data2 = Cannon.decode(io, typeof(data))
-    io.rewind
-    data2.should eq data
-  end
-
+def server_xchange(client, server)
+  n_cli = client.process_sending
+  n_ser = server.packet_received(client.user, Bytes.new(client.package_tosend.to_unsafe, n_cli), client.package_received)
+  client.process_receive if n_ser > 0
 end
 
 
 describe "basic client/server" do
   srv = TestServer.new
   cli = TestClient.new
-  srv_inst = srv.on_login(2)
+  srv_inst = srv.do_login(2).not_nil!
   cli.on_connected(2)
 
   it "works" do
@@ -139,10 +108,21 @@ describe "basic client/server" do
     cli.local_sync.num = 5
 
     direct_xchange(cli, srv_inst)
-    srv.state.all_data[5].should eq "hello"
     direct_xchange(srv_inst, cli)
+    srv.state.all_data[5].should eq "hello"
     cli.remote_sync.all_data[5].should eq "hello"
   end
+
+  it "parse packets when passed through server interface" do
+    cli.local_sync.data = "hello2"
+    cli.local_sync.num = 6
+
+    server_xchange(cli, srv)
+    srv.state.all_data[6].should eq "hello2"
+    cli.remote_sync.all_data[6].should eq "hello2"
+  end
+
+
   it "update seq_iq" do
     cli.local_seq = 5u16
     cli.remote_seq = 15u16
