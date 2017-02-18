@@ -28,8 +28,8 @@ abstract class Server(ClientSync, ServerSync)
 
   def dump_oldies
     time = Time.now
-    @clients.reject! do |cli|
-      result = cli.requested_disconnet || time - cli.last_message > DISCONNECT_DELAY
+    @clients.reject! do |id, cli|
+      result = cli.requested_disconnect || time - cli.last_message > DISCONNECT_DELAY
       cli.on_disconnect if result
       result
     end
@@ -51,11 +51,11 @@ end
 
 abstract class UserContext(ClientSync, ServerSync) < EndPoint(ServerSync, ClientSync)
   property last_message : Time
-  property requested_disconnet : Bool
+  property requested_disconnect : Bool
   def initialize(@server : Server(ClientSync, ServerSync), @user : UserID)
     super()
     @last_message = Time.now
-    @requested_disconnet = false
+    @requested_disconnect = false
   end
 
   abstract def on_disconnect
