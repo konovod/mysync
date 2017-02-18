@@ -1,6 +1,6 @@
 require "spec"
 require "../src/mysync"
-require "../src/mysync/basic"
+require "../src/mysync/interface"
 require "../src/mysync/serialization"
 
 class SpecLogger

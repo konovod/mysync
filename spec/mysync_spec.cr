@@ -136,7 +136,7 @@ describe "basic client/server" do
     cli.remote_seq.should eq 19u16
   end
 
-  it "disconnects old clients" do
+  pending "disconnects old clients" do
     SpecLogger.dump_events
     srv.dump_oldies
     SpecLogger.dump_events.size.should eq 0

@@ -3,5 +3,4 @@
 usage example:
 
 srv = TestServer.new
-
-udp_srv = UDPServer.new(srv, 12001)
+udp_srv = UDPServer.new(crypto, 12001)

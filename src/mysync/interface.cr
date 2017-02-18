@@ -1,4 +1,4 @@
-require "./basic"
+require "./endpoint"
 
 module MySync
 
@@ -63,5 +63,9 @@ abstract class UserContext(ClientSync, ServerSync) < EndPoint(ServerSync, Client
 end
 
 
+abstract class Client(ClientSync, ServerSync) < EndPoint(ClientSync, ServerSync)
+  abstract def on_connected(user : UserID)
+
+end
 
 end

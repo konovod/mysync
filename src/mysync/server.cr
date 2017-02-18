@@ -1,5 +1,5 @@
-require "./basic_client"
-require "./basic_server"
+require "./interface"
+require "monocypher"
 
 module MySync
 
@@ -10,7 +10,7 @@ class UDPServer
   end
 
   def listen_loop
-    
+
   end
 
 end
