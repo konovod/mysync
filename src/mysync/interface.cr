@@ -2,8 +2,6 @@ require "./endpoint"
 
 module MySync
 
-DISCONNECT_DELAY = Time::Span.new(0,0,1)
-
 abstract class Server(ClientSync, ServerSync)
 
   def initialize
@@ -15,7 +13,6 @@ abstract class Server(ClientSync, ServerSync)
   def packet_received(sender : UserID, data : Bytes, answer : Bytes): Int32
     context = @clients[sender]
     if context
-      context.last_message = Time.now
       context.package_received.copy_from(data)
       context.process_receive
       result = context.process_sending
@@ -23,15 +20,6 @@ abstract class Server(ClientSync, ServerSync)
       return result
     else
       return 0
-    end
-  end
-
-  def dump_oldies
-    time = Time.now
-    @clients.reject! do |id, cli|
-      result = cli.requested_disconnect || time - cli.last_message > DISCONNECT_DELAY
-      cli.on_disconnect if result
-      result
     end
   end
 
@@ -50,12 +38,8 @@ abstract class Server(ClientSync, ServerSync)
 end
 
 abstract class UserContext(ClientSync, ServerSync) < EndPoint(ServerSync, ClientSync)
-  property last_message : Time
-  property requested_disconnect : Bool
   def initialize(@server : Server(ClientSync, ServerSync), @user : UserID)
     super()
-    @last_message = Time.now
-    @requested_disconnect = false
   end
 
   abstract def on_disconnect

@@ -4,3 +4,7 @@ usage example:
 
 srv = TestServer.new
 udp_srv = UDPServer.new(crypto, 12001)
+
+
+
+ideas of server. There is a fiber listening to packets. it copy udp to corresponding buffer, then call fiber to start

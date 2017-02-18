@@ -6,8 +6,7 @@ alias UserID = Int32
 alias Sequence = UInt16
 alias AckMask = UInt32
 
-PACKAGE_SIZE = 1024
-RIGHT_SIGN = 0xC4AC7BE
+MAX_PACKAGE_SIZE = 1024
 
 
 
@@ -15,16 +14,18 @@ RIGHT_SIGN = 0xC4AC7BE
 @[Packed]
 struct PacketHeader
   include Cannon::FastAuto
-  property signature : Int32
   property sequence : Sequence
   property ack : Sequence
   property ack_mask : AckMask
   def initialize(@sequence, @ack, @ack_mask)
-    @signature = RIGHT_SIGN
   end
 end
 
-abstract class EndPoint(LocalSync, RemoteSync)
+
+abstract class AbstractEndPoint
+end
+
+abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
   property local_sync : LocalSync
   property remote_sync : RemoteSync
   property local_seq : Sequence
@@ -36,9 +37,9 @@ abstract class EndPoint(LocalSync, RemoteSync)
   def initialize
     @local_sync = LocalSync.new
     @remote_sync = RemoteSync.new
-    @package_received = Bytes.new(PACKAGE_SIZE)
+    @package_received = Bytes.new(MAX_PACKAGE_SIZE)
     @io_received = IO::Memory.new(@package_received)
-    @package_tosend = Bytes.new(PACKAGE_SIZE)
+    @package_tosend = Bytes.new(MAX_PACKAGE_SIZE)
     @io_tosend = IO::Memory.new(@package_tosend)
     @local_seq = 0u16
     @remote_seq = 0u16
@@ -50,7 +51,6 @@ abstract class EndPoint(LocalSync, RemoteSync)
   def process_receive
     @io_received.rewind
     header = Cannon.decode @io_received, PacketHeader
-    return unless header.signature == RIGHT_SIGN
     return if header.sequence == @remote_seq
     if @remote_seq < header.sequence
       @remote_seq = header.sequence
