@@ -141,17 +141,19 @@ describe "basic client/server" do
     direct_xchange(cli, srv_inst)
     srv.state.all_data[5].should eq "hello"
     direct_xchange(srv_inst, cli)
-    # cli.remote_sync.all_data[5].should eq "hello"
+    cli.remote_sync.all_data[5].should eq "hello"
   end
   it "update seq_iq" do
-    # cli.local_seq = 5
-    # cli.remote_seq = 15
-    # srv_inst.local_seq = 18
-    # srv_inst.remote_seq = 7
-
-
+    cli.local_seq = 5u16
+    cli.remote_seq = 15u16
+    srv_inst.local_seq = 18u16
+    srv_inst.remote_seq = 7u16
+    direct_xchange(cli, srv_inst)
+    cli.local_seq.should eq 6u16
+    srv_inst.remote_seq.should eq 7u16
+    direct_xchange(srv_inst, cli)
+    srv_inst.local_seq.should eq 19u16
+    cli.remote_seq.should eq 19u16
   end
-
-
 
 end
