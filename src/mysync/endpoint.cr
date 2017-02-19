@@ -21,8 +21,19 @@ struct PacketHeader
   end
 end
 
-
 abstract class AbstractEndPoint
+  getter requested_disconnect : Bool
+  def initialize(@package_received : Bytes, @package_tosend : Bytes)
+    @io_received = IO::Memory.new(@package_received)
+    @io_tosend = IO::Memory.new(@package_tosend)
+    @requested_disconnect = false
+  end
+  abstract def process_receive : Nil
+  abstract def process_sending : Int32
+end
+
+module EndPointFactory
+  abstract def new_endpoint(user : UserID, package_received : Bytes, package_tosend : Bytes)
 end
 
 abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
@@ -31,16 +42,10 @@ abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
   property local_seq : Sequence
   property remote_seq : Sequence
 
-  getter package_received
-  getter package_tosend
-
-  def initialize
+  def initialize(areceive, atosend)
+    super(areceive, atosend)
     @local_sync = LocalSync.new
     @remote_sync = RemoteSync.new
-    @package_received = Bytes.new(MAX_PACKAGE_SIZE)
-    @io_received = IO::Memory.new(@package_received)
-    @package_tosend = Bytes.new(MAX_PACKAGE_SIZE)
-    @io_tosend = IO::Memory.new(@package_tosend)
     @local_seq = 0u16
     @remote_seq = 0u16
   end
@@ -48,7 +53,7 @@ abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
   abstract def on_received_sync
   abstract def before_sending_sync
 
-  def process_receive
+  def process_receive : Nil
     @io_received.rewind
     header = Cannon.decode @io_received, PacketHeader
     return if header.sequence == @remote_seq

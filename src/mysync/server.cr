@@ -1,4 +1,4 @@
-require "./interface"
+require "./endpoint"
 require "monocypher"
 require "socket"
 
@@ -18,19 +18,56 @@ class GameConnection
   getter package
   getter control
   getter last_message : Time
-  getter requested_disconnect : Bool
-  def initialize(@address : Address, @socket : UDPSocket)
+  @endpoint : AbstractEndPoint?
+  def initialize(@address : Address, @socket : UDPSocket,
+                  @endpoint_factory : EndPointFactory
+                  )
     @last_message = Time.now
-    @requested_disconnect = false
     @package = Bytes.new(MAX_PACKAGE_SIZE)
+    @package_decrypted = Bytes.new(MAX_PACKAGE_SIZE)
+    @tosend_decrypted = Bytes.new(MAX_PACKAGE_SIZE)
+    @tosend = Bytes.new(MAX_PACKAGE_SIZE)
     @control = Channel(ConnectionCommand).new
+    @nonce = Crypto::Nonce.new
+    @symmetric_key = Crypto::SymmetricKey.new
   end
 
-  def process_packet
-    #TODO - actual work
+  def should_die(at_time : Time)
+    return true if at_time - @last_message > DISCONNECT_DELAY  #timeout
+    return false unless a = @endpoint #not authentificated
+    a.requested_disconnect
+  end
 
-    #if something something
+  #TODO - send packages asynchronously?
+
+
+  def process_packet
+    point = @endpoint
+    unless point
+        #TODO - authentification
+        userid = 2
+        point = @endpoint_factory.new_endpoint(userid, @package_decrypted, @tosend_decrypted)
+        @endpoint = point
+    end
+    #first it decrypts and check
+    return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @package, output: @package_decrypted)
+    #then pass to endpoint
     @last_message = Time.now
+    point.process_receive
+    n = point.process_sending
+    return if n<=0
+    #then encrypt
+    @nonce.reroll
+    Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: @tosend_decrypted, output: @tosend)
+    #then send back
+    begin
+      @socket.send(@tosend, @address)
+    rescue ex : Errno
+      if ex.errno == Errno::ECONNREFUSED
+        #well, message didn't pass
+        p ex.inspect
+      end
+    end
   end
 
   def execute
@@ -49,7 +86,7 @@ end
 
 class UDPGameServer
   @header : UInt32*
-  def initialize(@port : Int32)
+  def initialize(@endpoint_factory : EndPointFactory, @port : Int32)
     @connections = Hash(Address, GameConnection).new
     @banned = Set(Address).new
     @socket = UDPSocket.new(Socket::Family::INET)
@@ -69,7 +106,7 @@ class UDPGameServer
       next if @banned.includes? ip
       conn = @connections[ip]
       unless conn
-        conn = GameConnection.new(ip, @socket)
+        conn = GameConnection.new(ip, @socket, @endpoint_factory)
         @connections[ip] = conn
         spawn {conn.execute}
       end
@@ -82,7 +119,7 @@ class UDPGameServer
     loop do
       time = Time.now
       @connections.reject! do |addr, conn|
-        result = conn.requested_disconnect || time - conn.last_message > DISCONNECT_DELAY
+        result = conn.should_die(time)
         conn.control.send(ConnectionCommand::Close) if result
         result
       end
@@ -90,14 +127,8 @@ class UDPGameServer
     end
   end
 
-  def game_logic
-  end
-
-
 end
 
 
 
 end
-
-srv = MySync::UDPGameServer.new(12345)
