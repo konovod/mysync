@@ -1,21 +1,23 @@
 require "./spec_helper"
 
 class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
-
   def on_disconnect
     SpecLogger.log_srv "user disconnected: #{@user}"
   end
+
   def on_received_sync
     @server.state.all_data[@remote_sync.num] = @remote_sync.data if @remote_sync.num >= 0
   end
+
   def before_sending_sync
     @local_sync = @server.state
   end
 
-  #compiler bug?
+  # compiler bug?
   def process_receive
     super
   end
+
   def process_sending
     super
   end
@@ -23,7 +25,6 @@ class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
   def initialize(@server : TestServer, @user : MySync::UserID, package_received, package_tosend)
     super(package_received, package_tosend)
   end
-
 end
 
 class TestServer
@@ -34,16 +35,11 @@ class TestServer
     SpecLogger.log_srv "logged in: #{user}"
     TestUserContext.new(self, user, package_received, package_tosend)
   end
-
 end
 
-
 describe "udp server" do
-
   srv = TestServer.new
   udp_srv = MySync::UDPGameServer.new(srv, 12000)
-
-
 end
 
 #
@@ -79,7 +75,6 @@ end
 #   n_ser = server.packet_received(client.user, Bytes.new(client.package_tosend.to_unsafe, n_cli), client.package_received)
 #   client.process_receive if n_ser > 0
 # end
-
 
 # describe "basic client/server" do
 #   srv = TestServer.new

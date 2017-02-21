@@ -18,5 +18,4 @@ describe "additions to cannon" do
     io.rewind
     data2.should eq data
   end
-
 end

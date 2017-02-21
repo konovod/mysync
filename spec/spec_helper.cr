@@ -20,7 +20,6 @@ class SpecLogger
     @@events.clear
     r
   end
-
 end
 
 struct TestClientInput
@@ -40,10 +39,11 @@ end
 struct TestServerOutput
   include Cannon::Auto
   property all_data
-  def initialize()
-   @all_data = StaticArray(String, 16).new("")
-  end
-  def initialize(@all_data)
+
+  def initialize
+    @all_data = StaticArray(String, 16).new("")
   end
 
+  def initialize(@all_data)
+  end
 end
