@@ -37,32 +37,35 @@ class TestServer
   end
 end
 
-describe "udp server" do
-  srv = TestServer.new
-  udp_srv = MySync::UDPGameServer.new(srv, 12000)
+class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
+  def on_received_sync
+    SpecLogger.log_cli "received"
+  end
+
+  def before_sending_sync
+    SpecLogger.log_cli "sending"
+  end
+
+  # compiler bug?
+  def process_receive(data)
+    super
+  end
+
+  def process_sending
+    super
+  end
 end
 
-#
-#
-# class TestClient < MySync::Client(TestClientInput, TestServerOutput)
-#
-#   getter! user : MySync::UserID
-#
-#   def on_connected(user : MySync::UserID)
-#     SpecLogger.log_cli "logged in: #{user}"
-#     @user = user
-#   end
-#
-#   def on_received_sync
-#     SpecLogger.log_cli "received"
-#   end
-#
-#   def before_sending_sync
-#
-#   end
-#
-#
-# end
+srv = TestServer.new
+udp_srv = MySync::UDPGameServer.new(srv, 12001)
+
+cli = TestClientEndpoint.new
+udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12001))
+
+udp_cli.send_data
+
+sleep 0.1
+p SpecLogger.dump_events
 
 # def direct_xchange(sender, receiver)
 #   n = sender.process_sending

@@ -3,6 +3,7 @@ require "cannon"
 require "../src/mysync"
 require "../src/mysync/server"
 require "../src/mysync/serialization"
+require "../src/mysync/client"
 
 class SpecLogger
   @@events = [] of String

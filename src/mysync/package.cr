@@ -21,4 +21,8 @@ class Package
   def max_size
     @base.size
   end
+
+  def to_unsafe
+    @slice.to_unsafe
+  end
 end

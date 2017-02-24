@@ -5,18 +5,19 @@ require "./network"
 require "./package"
 
 module MySync
-  class Client
+  class UDPGameClient
     property symmetric_key
 
-    def initialize(@address : Address, @endpoint : AbstractEndPoint)
+    def initialize(@endpoint : AbstractEndPoint, @address : Address)
       @socket = UDPSocket.new
       @socket.connect @address
       @raw_received = Bytes.new(MAX_PACKAGE_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_PACKAGE_SIZE)
+      @tosend_header = @tosend.to_unsafe.as(UInt32*)
       @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
-      @header = @raw_received.to_unsafe.as(UInt32*)
+      @received_header = @raw_received.to_unsafe.as(UInt32*)
       spawn { reading_fiber }
     end
 
@@ -35,7 +36,7 @@ module MySync
         size, ip = @socket.receive(@raw_received)
         next if size < 4
         next if size > MAX_PACKAGE_SIZE
-        next if @header.value != RIGHT_SIGN
+        next if @received_header.value != RIGHT_SIGN
         package_received @raw_received[4, size - 4]
       end
     end
@@ -44,11 +45,12 @@ module MySync
       data = @endpoint.process_sending
       # then encrypt
       @nonce.reroll
-      @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: data, output: @tosend)
+      @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
+      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
+      @tosend_header.value = RIGHT_SIGN
       begin
-        @socket.send(@tosend, @address)
+        @socket.send(@tosend.slice, @address)
       rescue ex : Errno
         if ex.errno == Errno::ECONNREFUSED
           # well, message didn't pass

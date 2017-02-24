@@ -18,7 +18,7 @@ module MySync
     end
   end
 
-  class MyMemory < IO::Memory
+  private class MyMemory < IO::Memory
     def reset_to(slice : Bytes)
       @buffer = slice.to_unsafe
       @bytesize = @capacity = slice.size.to_i

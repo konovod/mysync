@@ -23,6 +23,7 @@ module MySync
       @received = Package.new(MAX_PACKAGE_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_PACKAGE_SIZE)
+      @header = @tosend.to_unsafe.as(UInt32*)
 
       @control = Channel(ConnectionCommand).new
       @nonce = Crypto::Nonce.new
@@ -58,8 +59,9 @@ module MySync
       tosend_decrypted = point.process_sending
       # then encrypt
       @nonce.reroll
-      @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice)
+      @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4
+      @header.value = RIGHT_SIGN
+      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       begin
         @socket.send(@tosend.slice, @address)
@@ -98,19 +100,22 @@ module MySync
       spawn { timed_fiber }
     end
 
+    private def init_connection(ip)
+      conn = GameConnection.new(ip, @socket, @endpoint_factory)
+      @connections[ip] = conn
+      spawn { conn.execute }
+      conn
+    end
+
     private def listen_fiber
       loop do
         size, ip = @socket.receive(@single_buffer)
+        p "packet!"
         next if size < 4
         next if size > MAX_PACKAGE_SIZE
         next if @header.value != RIGHT_SIGN
         next if @banned.includes? ip
-        conn = @connections[ip]
-        unless conn
-          conn = GameConnection.new(ip, @socket, @endpoint_factory)
-          @connections[ip] = conn
-          spawn { conn.execute }
-        end
+        conn = @connections[ip]? || init_connection(ip)
         conn.received.size = size - 4
         conn.received.slice.copy_from @single_buffer[4, size - 4]
         conn.control.send(ConnectionCommand::PacketReceived)
