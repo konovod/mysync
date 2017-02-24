@@ -1,30 +1,29 @@
 require "./endpoint"
 require "monocypher"
 require "socket"
+require "./network"
 
 module MySync
-  alias Address = Socket::IPAddress
-  RIGHT_SIGN       = 0xC4AC7BE
-  DISCONNECT_DELAY = Time::Span.new(0, 0, 1)
-
   enum ConnectionCommand
     Packet
     Close
   end
 
   class GameConnection
-    getter package
+    getter received
     getter control
     getter last_message : Time
+    getter symmetric_key
     @endpoint : AbstractEndPoint?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory)
       @last_message = Time.now
-      @package = Bytes.new(MAX_PACKAGE_SIZE)
-      @package_decrypted = Bytes.new(MAX_PACKAGE_SIZE)
-      @tosend_decrypted = Bytes.new(MAX_PACKAGE_SIZE)
-      @tosend = Bytes.new(MAX_PACKAGE_SIZE)
+      @received = Package.new(MAX_PACKAGE_SIZE)
+      @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
+      @tosend_decrypted = Package.new(MAX_PACKAGE_SIZE)
+      @tosend = Package.new(MAX_PACKAGE_SIZE)
+
       @control = Channel(ConnectionCommand).new
       @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
@@ -43,22 +42,26 @@ module MySync
       unless point
         # TODO - authentification
         userid = 2
-        point = @endpoint_factory.new_endpoint(userid, @package_decrypted, @tosend_decrypted)
+        point = @endpoint_factory.new_endpoint(userid, @received_decrypted.base, @tosend_decrypted.base)
         @endpoint = point
       end
       # first it decrypts and check
-      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @package, output: @package_decrypted)
+      return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
+      @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
+      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @received.slice, output: @received_decrypted.slice)
       # then pass to endpoint
       @last_message = Time.now
       point.process_receive
       n = point.process_sending
       return if n <= 0
+      @tosend_decrypted.size = n
       # then encrypt
       @nonce.reroll
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: @tosend_decrypted, output: @tosend)
+      @tosend.size = n + Crypto::OVERHEAD_SYMMETRIC
+      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: @tosend_decrypted.slice, output: @tosend.slice)
       # then send back
       begin
-        @socket.send(@tosend, @address)
+        @socket.send(@tosend.slice, @address)
       rescue ex : Errno
         if ex.errno == Errno::ECONNREFUSED
           # well, message didn't pass
@@ -107,7 +110,8 @@ module MySync
           @connections[ip] = conn
           spawn { conn.execute }
         end
-        conn.package.copy_from @single_buffer[4, size - 4]
+        conn.received.size = size - 4
+        conn.received.slice.copy_from @single_buffer[4, size - 4]
         conn.control.send(ConnectionCommand::Packet)
       end
     end
