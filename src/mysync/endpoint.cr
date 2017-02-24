@@ -18,21 +18,29 @@ module MySync
     end
   end
 
+  class MyMemory < IO::Memory
+    def reset_to(slice : Bytes)
+      @buffer = slice.to_unsafe
+      @bytesize = @capacity = slice.size.to_i
+      @pos = 0
+    end
+  end
+
   abstract class AbstractEndPoint
     getter requested_disconnect : Bool
 
-    def initialize(@package_received : Bytes, @package_tosend : Bytes)
-      @io_received = IO::Memory.new(@package_received)
-      @io_tosend = IO::Memory.new(@package_tosend)
+    def initialize
+      @io_received = MyMemory.new(1)
+      @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @requested_disconnect = false
     end
 
-    abstract def process_receive : Nil
-    abstract def process_sending : Int32
+    abstract def process_receive(data : Bytes) : Nil
+    abstract def process_sending : Bytes
   end
 
   module EndPointFactory
-    abstract def new_endpoint(user : UserID, package_received : Bytes, package_tosend : Bytes)
+    abstract def new_endpoint(user : UserID)
   end
 
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
@@ -41,8 +49,8 @@ module MySync
     property local_seq : Sequence
     property remote_seq : Sequence
 
-    def initialize(areceive, atosend)
-      super(areceive, atosend)
+    def initialize
+      super
       @local_sync = LocalSync.new
       @remote_sync = RemoteSync.new
       @local_seq = 0u16
@@ -52,8 +60,8 @@ module MySync
     abstract def on_received_sync
     abstract def before_sending_sync
 
-    def process_receive : Nil
-      @io_received.rewind
+    def process_receive(data : Bytes) : Nil
+      @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
       return if header.sequence == @remote_seq
       if @remote_seq < header.sequence
@@ -67,7 +75,7 @@ module MySync
       # TODO - process async
     end
 
-    def process_sending : Int32
+    def process_sending : Bytes
       @io_tosend.rewind
       # TODO - fill ack_mask
       @local_seq += 1
@@ -76,7 +84,7 @@ module MySync
       before_sending_sync
       Cannon.encode @io_tosend, @local_sync
       # TODO - process async
-      return @io_tosend.pos
+      return Bytes.new(@io_tosend.buffer, @io_tosend.pos)
     end
   end
 

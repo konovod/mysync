@@ -2,6 +2,7 @@ require "./endpoint"
 require "monocypher"
 require "socket"
 require "./network"
+require "./package"
 
 module MySync
   class Client
@@ -11,18 +12,20 @@ module MySync
     def initialize(@address : Address, @endpoint : AbstractEndPoint)
       @socket = UDPSocket.new
       @socket.connect @address
-      @package = Bytes.new(MAX_PACKAGE_SIZE)
-      @package_decrypted = Bytes.new(MAX_PACKAGE_SIZE)
+      @package = Package.new(MAX_PACKAGE_SIZE)
+      @package_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
     # TODO - send packages asynchronously?
-    private def process_receiption
+    def package_received
       # first it decrypts and check
-      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @package, output: @package_decrypted)
+      return if @package.size <= Crypto::OVERHEAD_SYMMETRIC
+      @package_decrypted.size = @package.size - Crypto::OVERHEAD_SYMMETRIC
+      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @package.slice, output: @package_decrypted)
       # then pass to endpoint
-      point.process_receive
+      @endpoint.process_receive
     end
   end
 

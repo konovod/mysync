@@ -1,4 +1,5 @@
 # buffer of fixed size + slice of variable size
+# TODO: make it looks like a normal slice
 
 class Package
   getter slice : Bytes

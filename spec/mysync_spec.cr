@@ -14,7 +14,7 @@ class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
   end
 
   # compiler bug?
-  def process_receive
+  def process_receive(data)
     super
   end
 
@@ -22,8 +22,8 @@ class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
     super
   end
 
-  def initialize(@server : TestServer, @user : MySync::UserID, package_received, package_tosend)
-    super(package_received, package_tosend)
+  def initialize(@server : TestServer, @user : MySync::UserID)
+    super()
   end
 end
 
@@ -31,9 +31,9 @@ class TestServer
   include MySync::EndPointFactory
   property state = TestServerOutput.new
 
-  def new_endpoint(user : MySync::UserID, package_received : Bytes, package_tosend : Bytes)
+  def new_endpoint(user : MySync::UserID)
     SpecLogger.log_srv "logged in: #{user}"
-    TestUserContext.new(self, user, package_received, package_tosend)
+    TestUserContext.new(self, user)
   end
 end
 

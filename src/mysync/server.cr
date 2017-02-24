@@ -2,10 +2,11 @@ require "./endpoint"
 require "monocypher"
 require "socket"
 require "./network"
+require "./package"
 
 module MySync
   enum ConnectionCommand
-    Packet
+    PacketReceived
     Close
   end
 
@@ -21,7 +22,6 @@ module MySync
       @last_message = Time.now
       @received = Package.new(MAX_PACKAGE_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
-      @tosend_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_PACKAGE_SIZE)
 
       @control = Channel(ConnectionCommand).new
@@ -42,23 +42,24 @@ module MySync
       unless point
         # TODO - authentification
         userid = 2
-        point = @endpoint_factory.new_endpoint(userid, @received_decrypted.base, @tosend_decrypted.base)
+        point = @endpoint_factory.new_endpoint(userid)
         @endpoint = point
       end
       # first it decrypts and check
       return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
-      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: @received.slice, output: @received_decrypted.slice)
+      return unless Crypto.symmetric_decrypt(
+                      key: @symmetric_key,
+                      input: @received.slice,
+                      output: @received_decrypted.slice)
       # then pass to endpoint
       @last_message = Time.now
-      point.process_receive
-      n = point.process_sending
-      return if n <= 0
-      @tosend_decrypted.size = n
+      point.process_receive(@received_decrypted.slice)
+      tosend_decrypted = point.process_sending
       # then encrypt
       @nonce.reroll
-      @tosend.size = n + Crypto::OVERHEAD_SYMMETRIC
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: @tosend_decrypted.slice, output: @tosend.slice)
+      @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC
+      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice)
       # then send back
       begin
         @socket.send(@tosend.slice, @address)
@@ -74,7 +75,7 @@ module MySync
       loop do
         cmd = @control.receive
         case ConnectionCommand
-        when ConnectionCommand::Packet
+        when ConnectionCommand::PacketReceived
           process_packet
         when ConnectionCommand::Close
           return
@@ -112,7 +113,7 @@ module MySync
         end
         conn.received.size = size - 4
         conn.received.slice.copy_from @single_buffer[4, size - 4]
-        conn.control.send(ConnectionCommand::Packet)
+        conn.control.send(ConnectionCommand::PacketReceived)
       end
     end
 
