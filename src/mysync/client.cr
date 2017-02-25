@@ -32,9 +32,15 @@ module MySync
       @endpoint.process_receive(@received_decrypted.slice)
     end
 
+    private def try_receive
+      @socket.receive(@raw_received)
+    rescue
+      {0, nil}
+    end
+
     private def reading_fiber
       loop do
-        size, ip = @socket.receive(@raw_received)
+        size, ip = try_receive
         next if size < 4
         next if size > MAX_PACKAGE_SIZE
         next if @received_header.value != RIGHT_SIGN

@@ -30,7 +30,7 @@ module MySync
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
-    def should_die(at_time : Time)
+    def should_die(at_time : Time) : Bool
       return true if at_time - @last_message > DISCONNECT_DELAY # timeout
       return false unless a = @endpoint                         # not authentificated
       a.requested_disconnect
@@ -91,6 +91,7 @@ module MySync
         when ConnectionCommand::PacketReceived
           process_packet
         when ConnectionCommand::Close
+          p "dying"
           return
         end
       end
@@ -114,6 +115,7 @@ module MySync
     end
 
     private def init_connection(ip)
+      p "adding connection #{ip}"
       conn = GameConnection.new(self, ip, @socket, @endpoint_factory)
       @connections[ip] = conn
       spawn { conn.execute }
@@ -123,6 +125,7 @@ module MySync
     private def listen_fiber
       loop do
         size, ip = @socket.receive(@single_buffer)
+        p "received #{ip}"
         next if size < 4
         next if size > MAX_PACKAGE_SIZE
         next if @header.value != RIGHT_SIGN
@@ -137,12 +140,15 @@ module MySync
     private def timed_fiber
       loop do
         time = Time.now
-        @connections.reject! do |addr, conn|
-          result = conn.should_die(time)
-          conn.control.send(ConnectionCommand::Close) if result
-          result
+        p "was #{@connections.keys.size}"
+
+        @connections.each do |addr, conn|
+          p "checking #{addr}"
+          conn.control.send(ConnectionCommand::Close) if conn.should_die(time)
         end
-        sleep(1)
+
+        p "still #{@connections.keys.size}"
+        sleep(0.2)
       end
     end
   end
