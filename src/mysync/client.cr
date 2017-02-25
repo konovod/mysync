@@ -11,6 +11,7 @@ module MySync
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
       @socket = UDPSocket.new
+      @socket.read_timeout = Time::Span.new(0, 0, 1)
       @socket.connect @address
       @raw_received = Bytes.new(MAX_PACKAGE_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -62,13 +63,9 @@ module MySync
       return nil if @received_header.value != RIGHT_SIGN
       package = @raw_received[4, size - 4]
       # decrypt it with symmetric_key
-      p "step3 #{package.size} <= #{Crypto::OVERHEAD_SYMMETRIC}"
       return nil if package.size < Crypto::OVERHEAD_SYMMETRIC
-      p "step4"
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
-      p "decrypting!"
       return nil unless Crypto.symmetric_decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
-      p "decrypted!"
       # all is fine, copy data to output and start listening
       data = Bytes.new(@received_decrypted.size)
       data.copy_from @received_decrypted.slice

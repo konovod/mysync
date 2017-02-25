@@ -35,7 +35,7 @@ class TestServer
     username = String.new(authdata)
     SpecLogger.log_srv "logged in: #{username}"
     userid = 2
-    {endpoint: TestUserContext.new(self, userid), response: Bytes.new(0)}
+    {endpoint: TestUserContext.new(self, userid), response: "you_can_pass".to_slice}
   end
 end
 
@@ -67,57 +67,29 @@ udp_srv = MySync::UDPGameServer.new(srv, 12000, secret_key)
 cli = TestClientEndpoint.new
 udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000))
 
-# udp_cli.send_data
-udp_cli.socket.read_timeout = Time::Span.new(0, 0, 1)
+it "test login" do
+  answer = udp_cli.login(public_key, "it_s_me".to_slice)
+  String.new(answer.not_nil!).should eq "you_can_pass"
+  SpecLogger.dump_events.should eq ["SERVER: logged in: it_s_me"]
+end
 
-data = udp_cli.login(public_key, "it_s_me".to_slice)
+it "basic data exchange" do
+  udp_cli.send_data
+  sleep 0.1
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received"]
+end
 
-p data
+it "passed data are applied" do
+  cli.local_sync.data = "hello"
+  cli.local_sync.num = 5
 
-# sleep 0.2
-p SpecLogger.dump_events
+  udp_cli.send_data
+  sleep 0.1
 
-# def direct_xchange(sender, receiver)
-#   n = sender.process_sending
-#   receiver.package_received.copy_from(sender.package_tosend.to_unsafe, n)
-#   receiver.process_receive
-# end
-#
-# def server_xchange(client, server)
-#   n_cli = client.process_sending
-#   n_ser = server.packet_received(client.user, Bytes.new(client.package_tosend.to_unsafe, n_cli), client.package_received)
-#   client.process_receive if n_ser > 0
-# end
+  srv.state.all_data[5].should eq "hello"
+  cli.remote_sync.all_data[5].should eq "hello"
+end
 
-# describe "basic client/server" do
-#   srv = TestServer.new
-#   cli = TestClient.new
-#   srv_inst = srv.do_login(2).not_nil!
-#   cli.on_connected(2)
-#
-#   it "works" do
-#     SpecLogger.dump_events.should eq ["SERVER: logged in: 2", "CLIENT: logged in: 2"]
-#   end
-#
-#   it "parse packets when passed directly" do
-#     cli.local_sync.data = "hello"
-#     cli.local_sync.num = 5
-#
-#     direct_xchange(cli, srv_inst)
-#     direct_xchange(srv_inst, cli)
-#     srv.state.all_data[5].should eq "hello"
-#     cli.remote_sync.all_data[5].should eq "hello"
-#   end
-#
-#   it "parse packets when passed through server interface" do
-#     cli.local_sync.data = "hello2"
-#     cli.local_sync.num = 6
-#
-#     server_xchange(cli, srv)
-#     srv.state.all_data[6].should eq "hello2"
-#     cli.remote_sync.all_data[6].should eq "hello2"
-#   end
-#
 #
 #   it "update seq_iq" do
 #     cli.local_seq = 5u16

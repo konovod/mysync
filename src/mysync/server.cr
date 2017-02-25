@@ -75,7 +75,6 @@ module MySync
       @header.value = RIGHT_SIGN
       Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
-      p "server sending udp to #{@address}"
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno
