@@ -7,6 +7,7 @@ require "./package"
 module MySync
   class UDPGameClient
     property symmetric_key
+    getter socket
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
       @socket = UDPSocket.new
@@ -18,7 +19,6 @@ module MySync
       @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
       @received_header = @raw_received.to_unsafe.as(UInt32*)
-      spawn { reading_fiber }
     end
 
     # TODO - send packages asynchronously?
@@ -39,6 +39,37 @@ module MySync
         next if @received_header.value != RIGHT_SIGN
         package_received @raw_received[4, size - 4]
       end
+    end
+
+    def login(public_key : Crypto::PublicKey, authdata : Bytes) : Bytes?
+      # we encrypt symmetric_key and auth data with server's public key
+      plaintext = Bytes.new(Crypto::SymmetricKey.size + authdata.size)
+      plaintext[0, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
+      plaintext[Crypto::SymmetricKey.size, authdata.size].copy_from authdata
+      @tosend.size = plaintext.size + Crypto::OVERHEAD_ANONYMOUS + 4
+      Crypto.asymmetric_encrypt(their_public: public_key, input: plaintext, output: @tosend.slice[4, @tosend.size - 4])
+      # send it to server
+      @tosend_header.value = RIGHT_SIGN
+      begin
+        @socket.send(@tosend.slice, @address)
+      rescue ex : Errno
+        return nil
+      end
+      # wait for response
+      size, ip = @socket.receive(@raw_received)
+      return nil if size < 4
+      return nil if size > MAX_PACKAGE_SIZE
+      return nil if @received_header.value != RIGHT_SIGN
+      package = @raw_received[4, size - 4]
+      # decrypt it with symmetric_key
+      return nil if package.size <= Crypto::OVERHEAD_SYMMETRIC
+      @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
+      return nil unless Crypto.symmetric_decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      # all is fine, copy data to output and start listening
+      data = Bytes.new(@received_decrypted.size)
+      data.copy_from @received_decrypted.slice
+      spawn { reading_fiber }
+      return data
     end
 
     def send_data

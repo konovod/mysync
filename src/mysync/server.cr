@@ -11,13 +11,14 @@ module MySync
   end
 
   class GameConnection
+    getter socket
     getter received
     getter control
     getter last_message : Time
     getter symmetric_key
     @endpoint : AbstractEndPoint?
 
-    def initialize(@address : Address, @socket : UDPSocket,
+    def initialize(@server : UDPGameServer, @address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory)
       @last_message = Time.now
       @received = Package.new(MAX_PACKAGE_SIZE)
@@ -41,9 +42,19 @@ module MySync
     def process_packet
       point = @endpoint
       unless point
+        # here is anonymously encrypted packet with symmetric_key and auth data
+        return if @received.size - Crypto::OVERHEAD_ANONYMOUS <= Crypto::SymmetricKey.size
+        @received_decrypted.size = @received.size - Crypto::OVERHEAD_ANONYMOUS
+        return unless Crypto.asymmetric_decrypt(
+                        your_secret: @server.secret_key,
+                        input: @received.slice,
+                        output: @received_decrypted.slice)
         # TODO - authentification
-        userid = 2
-        point = @endpoint_factory.new_endpoint(userid)
+        authdata = @received_decrypted.slice[Crypto::SymmetricKey.size, @received_decrypted.size - Crypto::SymmetricKey.size]
+        received_key = @received_decrypted.slice[0, Crypto::SymmetricKey.size]
+        point = @endpoint_factory.new_endpoint(authdata)
+        return unless point
+        @symmetric_key.to_slice.copy_from(received_key)
         @endpoint = point
       end
       # first it decrypts and check
@@ -88,8 +99,9 @@ module MySync
 
   class UDPGameServer
     @header : UInt32*
+    getter secret_key
 
-    def initialize(@endpoint_factory : EndPointFactory, @port : Int32)
+    def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
       @connections = Hash(Address, GameConnection).new
       @banned = Set(Address).new
       @socket = UDPSocket.new(Socket::Family::INET)
@@ -101,7 +113,7 @@ module MySync
     end
 
     private def init_connection(ip)
-      conn = GameConnection.new(ip, @socket, @endpoint_factory)
+      conn = GameConnection.new(self, ip, @socket, @endpoint_factory)
       @connections[ip] = conn
       spawn { conn.execute }
       conn

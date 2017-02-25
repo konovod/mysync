@@ -40,7 +40,7 @@ module MySync
   end
 
   module EndPointFactory
-    abstract def new_endpoint(user : UserID)
+    abstract def new_endpoint(authdata : Bytes) : AbstractEndPoint?
   end
 
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint

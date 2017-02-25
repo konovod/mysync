@@ -13,3 +13,10 @@ ideas of server. There is a fiber listening to packets. it copy udp to correspon
 ideas of Client
 One fiber always listens
 sending is done by calling "send"
+
+
+simple AUTH:
+1. client sends symmetric_key and auth data (encrypting anonymously) until it get answer (some payload encrypted with that key)
+2. if it's ok, client is now in a list and can send normal data
+
+---that's all.
