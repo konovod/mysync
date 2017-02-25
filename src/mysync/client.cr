@@ -62,9 +62,13 @@ module MySync
       return nil if @received_header.value != RIGHT_SIGN
       package = @raw_received[4, size - 4]
       # decrypt it with symmetric_key
-      return nil if package.size <= Crypto::OVERHEAD_SYMMETRIC
+      p "step3 #{package.size} <= #{Crypto::OVERHEAD_SYMMETRIC}"
+      return nil if package.size < Crypto::OVERHEAD_SYMMETRIC
+      p "step4"
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
+      p "decrypting!"
       return nil unless Crypto.symmetric_decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      p "decrypted!"
       # all is fine, copy data to output and start listening
       data = Bytes.new(@received_decrypted.size)
       data.copy_from @received_decrypted.slice

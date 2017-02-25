@@ -40,8 +40,19 @@ module MySync
     # TODO - send packages asynchronously?
 
     def process_packet
-      point = @endpoint
-      unless point
+      if point = @endpoint # connection already established
+        # first it decrypts and check
+        return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
+        @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
+        return unless Crypto.symmetric_decrypt(
+                        key: @symmetric_key,
+                        input: @received.slice,
+                        output: @received_decrypted.slice)
+        # then pass to endpoint
+        @last_message = Time.now
+        point.process_receive(@received_decrypted.slice)
+        tosend_decrypted = point.process_sending
+      else
         # here is anonymously encrypted packet with symmetric_key and auth data
         return if @received.size - Crypto::OVERHEAD_ANONYMOUS <= Crypto::SymmetricKey.size
         @received_decrypted.size = @received.size - Crypto::OVERHEAD_ANONYMOUS
@@ -49,31 +60,22 @@ module MySync
                         your_secret: @server.secret_key,
                         input: @received.slice,
                         output: @received_decrypted.slice)
-        # TODO - authentification
         authdata = @received_decrypted.slice[Crypto::SymmetricKey.size, @received_decrypted.size - Crypto::SymmetricKey.size]
         received_key = @received_decrypted.slice[0, Crypto::SymmetricKey.size]
-        point = @endpoint_factory.new_endpoint(authdata)
-        return unless point
+        tuple = @endpoint_factory.new_endpoint(authdata)
+        return unless tuple
         @symmetric_key.to_slice.copy_from(received_key)
-        @endpoint = point
+        @endpoint = tuple[:endpoint]
+        # now send response
+        tosend_decrypted = tuple[:response]
       end
-      # first it decrypts and check
-      return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
-      @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
-      return unless Crypto.symmetric_decrypt(
-                      key: @symmetric_key,
-                      input: @received.slice,
-                      output: @received_decrypted.slice)
-      # then pass to endpoint
-      @last_message = Time.now
-      point.process_receive(@received_decrypted.slice)
-      tosend_decrypted = point.process_sending
       # then encrypt
       @nonce.reroll
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4
       @header.value = RIGHT_SIGN
       Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
+      p "server sending udp to #{@address}"
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno
@@ -87,7 +89,7 @@ module MySync
     def execute
       loop do
         cmd = @control.receive
-        case ConnectionCommand
+        case cmd
         when ConnectionCommand::PacketReceived
           process_packet
         when ConnectionCommand::Close
@@ -122,7 +124,6 @@ module MySync
     private def listen_fiber
       loop do
         size, ip = @socket.receive(@single_buffer)
-        p "packet!"
         next if size < 4
         next if size > MAX_PACKAGE_SIZE
         next if @header.value != RIGHT_SIGN

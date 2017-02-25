@@ -31,10 +31,11 @@ class TestServer
   include MySync::EndPointFactory
   property state = TestServerOutput.new
 
-  def new_endpoint(authdata : Bytes)
+  def new_endpoint(authdata : Bytes) : {endpoint: MySync::AbstractEndPoint, response: Bytes}?
     username = String.new(authdata)
     SpecLogger.log_srv "logged in: #{username}"
-    TestUserContext.new(self, 1)
+    userid = 2
+    {endpoint: TestUserContext.new(self, userid), response: Bytes.new(0)}
   end
 end
 
@@ -67,10 +68,13 @@ cli = TestClientEndpoint.new
 udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000))
 
 # udp_cli.send_data
-udp_cli.socket.read_timeout = Time::Span.new(0, 0, 0.1)
-udp_cli.login(public_key, "it_s_me".to_slice)
+udp_cli.socket.read_timeout = Time::Span.new(0, 0, 1)
 
-sleep 0.2
+data = udp_cli.login(public_key, "it_s_me".to_slice)
+
+p data
+
+# sleep 0.2
 p SpecLogger.dump_events
 
 # def direct_xchange(sender, receiver)
