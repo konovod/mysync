@@ -15,8 +15,7 @@ module MySync
     getter received
     getter control
     getter last_message : Time
-    getter symmetric_key
-    @endpoint : AbstractEndPoint?
+    getter endpoint : AbstractEndPoint?
 
     def initialize(@server : UDPGameServer, @address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory)
@@ -101,6 +100,7 @@ module MySync
   class UDPGameServer
     @header : UInt32*
     getter secret_key
+    getter connections
 
     def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
       @connections = Hash(Address, GameConnection).new

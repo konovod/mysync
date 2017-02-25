@@ -49,3 +49,34 @@ struct TestServerOutput
   def initialize(@all_data)
   end
 end
+
+# compiler bug?
+# ####hopefully fixed in 0.21.0
+######################
+macro solve_bug
+
+  def process_receive(data)
+    super
+  end
+
+  def process_sending
+    super
+  end
+
+  def local_seq=(value)
+    super
+  end
+
+  def remote_seq=(value)
+    super
+  end
+
+  def local_seq
+    super
+  end
+
+  def remote_seq
+    super
+  end
+
+end

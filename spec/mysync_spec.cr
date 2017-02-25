@@ -13,14 +13,7 @@ class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
     @local_sync = @server.state
   end
 
-  # compiler bug?
-  def process_receive(data)
-    super
-  end
-
-  def process_sending
-    super
-  end
+  solve_bug
 
   def initialize(@server : TestServer, @user : MySync::UserID)
     super()
@@ -48,14 +41,7 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
     SpecLogger.log_cli "sending"
   end
 
-  # compiler bug?
-  def process_receive(data)
-    super
-  end
-
-  def process_sending
-    super
-  end
+  solve_bug
 end
 
 secret_key = Crypto::SecretKey.new("c4b12631c3f68e7a72fc760a31ffaae0a7a5f8d892cac43c0d8d06acd1b3fd8f")
@@ -90,19 +76,27 @@ it "passed data are applied" do
   cli.remote_sync.all_data[5].should eq "hello"
 end
 
+srv_inst = udp_srv.connections.values.first.endpoint.not_nil!
+it "update seq_iq" do
+  cli.local_seq = 5u16
+  cli.remote_seq = 15u16
+  srv_inst.local_seq = 18u16
+  srv_inst.remote_seq = 7u16
+
+  udp_cli.send_data
+  sleep 0.1
+
+  cli.local_seq.should eq 6u16
+  srv_inst.remote_seq.should eq 7u16
+
+  udp_cli.send_data
+  sleep 0.1
+
+  srv_inst.local_seq.should eq 20u16
+  cli.remote_seq.should eq 20u16
+end
+
 #
-#   it "update seq_iq" do
-#     cli.local_seq = 5u16
-#     cli.remote_seq = 15u16
-#     srv_inst.local_seq = 18u16
-#     srv_inst.remote_seq = 7u16
-#     direct_xchange(cli, srv_inst)
-#     cli.local_seq.should eq 6u16
-#     srv_inst.remote_seq.should eq 7u16
-#     direct_xchange(srv_inst, cli)
-#     srv_inst.local_seq.should eq 19u16
-#     cli.remote_seq.should eq 19u16
-#   end
 #
 #   pending "disconnects old clients" do
 #     SpecLogger.dump_events
