@@ -1,9 +1,10 @@
 require "cannon"
+require "./endpoint_interface"
 
 module MySync
-  alias UserID = Int32
   alias Sequence = UInt16
   alias AckMask = UInt32
+  N_ACKS = 32
 
   MAX_PACKAGE_SIZE = 1024
 
@@ -26,24 +27,6 @@ module MySync
     end
   end
 
-  abstract class AbstractEndPoint
-    getter requested_disconnect : Bool
-
-    def initialize
-      @requested_disconnect = false
-    end
-
-    abstract def process_receive(data : Bytes) : Nil
-    abstract def process_sending : Bytes
-
-    def on_disconnect
-    end
-  end
-
-  module EndPointFactory
-    abstract def new_endpoint(authdata : Bytes) : {endpoint: AbstractEndPoint, response: Bytes}?
-  end
-
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
     property remote_sync : RemoteSync
@@ -58,6 +41,7 @@ module MySync
       @remote_sync = RemoteSync.new
       @local_seq = 0u16
       @remote_seq = 0u16
+      # @remote_acks = StaticArray
     end
 
     abstract def on_received_sync

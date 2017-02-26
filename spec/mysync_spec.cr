@@ -15,7 +15,7 @@ class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
 
   solve_bug
 
-  def initialize(@server : TestServer, @user : MySync::UserID)
+  def initialize(@server : TestServer, @user : Int32)
     super()
   end
 end

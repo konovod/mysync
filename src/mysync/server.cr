@@ -1,4 +1,4 @@
-require "./endpoint"
+require "./endpoint_interface"
 require "monocypher"
 require "socket"
 require "./network"
