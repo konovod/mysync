@@ -6,7 +6,6 @@ require "./package"
 
 module MySync
   class UDPGameClient
-    property symmetric_key
     getter socket
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
