@@ -1,6 +1,6 @@
 # mysync
 
-TODO: Write a description here
+UDP protocol library for games, inspired by http://gafferongames.com articles (but missing all things i don't need in my games). Totally WIP.
 
 ## Installation
 
@@ -9,7 +9,7 @@ Add this to your application's `shard.yml`:
 ```yaml
 dependencies:
   mysync:
-    github: [your-github-name]/mysync
+    github: konovod/mysync
 ```
 
 ## Usage
