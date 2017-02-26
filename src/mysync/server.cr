@@ -13,7 +13,7 @@ module MySync
       @connections = Hash(AddressHash, GameConnection).new
       @banned = Set(Address).new
       @socket = UDPSocket.new(Socket::Family::INET)
-      @socket.bind("localhost", @port)
+      @socket.bind("0.0.0.0", @port)
       @single_buffer = Bytes.new(MAX_PACKAGE_SIZE)
       @header = @single_buffer.to_unsafe.as(UInt32*)
       spawn { listen_fiber }
