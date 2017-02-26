@@ -105,8 +105,7 @@ it "disconnects old clients" do
   udp_srv.n_clients.should eq 1
   sleep(1.5)
   udp_srv.n_clients.should eq 0
-  # SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2"]
-  p SpecLogger.dump_events
+  SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2"]
 end
 
 #

@@ -37,6 +37,9 @@ module MySync
 
     abstract def process_receive(data : Bytes) : Nil
     abstract def process_sending : Bytes
+
+    def on_disconnect
+    end
   end
 
   module EndPointFactory

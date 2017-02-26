@@ -91,7 +91,9 @@ module MySync
         when ConnectionCommand::PacketReceived
           process_packet
         when ConnectionCommand::Close
-          p "dying"
+          if point = @endpoint
+            point.on_disconnect
+          end
           return
         end
       end
