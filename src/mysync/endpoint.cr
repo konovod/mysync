@@ -2,23 +2,20 @@ require "cannon"
 require "./endpoint_interface"
 
 module MySync
+  # must be unsigned for seamless overflow
   alias Sequence = UInt16
+
   alias AckMask = UInt32
-  N_ACKS = 32
+  N_ACKS = 32 + 1
 
   MAX_PACKAGE_SIZE = 1024
 
   @[Packed]
-  struct PacketHeader
+  record PacketHeader, sequence : Sequence, ack : Sequence, ack_mask : AckMask do
     include Cannon::FastAuto
-    property sequence : Sequence
-    property ack : Sequence
-    property ack_mask : AckMask
-
-    def initialize(@sequence, @ack, @ack_mask)
-    end
   end
 
+  # IO::Memory refinement that can change used buffer avoiding reallocation
   private class MyMemory < IO::Memory
     def reset_to(slice : Bytes)
       @buffer = slice.to_unsafe
@@ -26,6 +23,11 @@ module MySync
       @pos = 0
     end
   end
+
+  # for our packets we save a time to measure ping
+  # for remote we need only the fact that it passed
+  record RemoteAckData, passed : Bool
+  record LocalAckData, passed : Bool, sent : Time
 
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
