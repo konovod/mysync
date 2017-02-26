@@ -30,8 +30,6 @@ module MySync
     getter requested_disconnect : Bool
 
     def initialize
-      @io_received = MyMemory.new(1)
-      @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @requested_disconnect = false
     end
 
@@ -54,6 +52,8 @@ module MySync
 
     def initialize
       super
+      @io_received = MyMemory.new(1)
+      @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @local_sync = LocalSync.new
       @remote_sync = RemoteSync.new
       @local_seq = 0u16
