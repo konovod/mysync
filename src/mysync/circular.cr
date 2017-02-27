@@ -1,4 +1,4 @@
-require "./endpoint"
+require "./endpoint_types"
 
 # circular buffer that holds up to N_ACKS values
 module MySync

@@ -1,12 +1,9 @@
 require "cannon"
+require "./endpoint_types"
 require "./endpoint_interface"
+require "./circular"
 
 module MySync
-  # must be unsigned for seamless overflow
-  alias Sequence = UInt16
-
-  alias AckMask = UInt32
-  N_ACKS = 32 + 1
 
   MAX_PACKAGE_SIZE = 1024
 
@@ -26,8 +23,8 @@ module MySync
 
   # for our packets we save a time to measure ping
   # for remote we need only the fact that it passed
-  record RemoteAckData, passed : Bool
-  record LocalAckData, passed : Bool, sent : Time
+  ackrecord RemoteAckData
+  ackrecord LocalAckData, sent : Time
 
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
@@ -43,7 +40,8 @@ module MySync
       @remote_sync = RemoteSync.new
       @local_seq = 0u16
       @remote_seq = 0u16
-      # @remote_acks = StaticArray
+      @remote_acks = CircularAckBuffer(RemoteAckData).new
+      @local_acks = CircularAckBuffer(LocalAckData).new
     end
 
     abstract def on_received_sync
