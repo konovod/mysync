@@ -37,7 +37,7 @@ describe "CircularAckBuffer" do
     buf.passed(124u16).should be_true
   end
 
-  it "but old packets become unknown (and not passed)" do
+  it "old packets become unknown (not passed)" do
     buf.cur_seq = 124u16 + MySync::N_ACKS
     buf[122u16 + MySync::N_ACKS]?.not_nil!.payload.should eq "ack1"
     buf[122u16 + MySync::N_ACKS]?.not_nil!.passed.should be_false

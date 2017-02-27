@@ -6,16 +6,22 @@ module MySync
     getter cur_seq : Sequence
 
     def initialize
-      @data = uninitialized StaticArray(T, N_ACKS)
-      N_ACKS.times do |i|
-        @data[i].passed = false
-      end
+      t = uninitialized T
+      t = t.set_passed false
+      @data = StaticArray(T, N_ACKS).new(t)
       @cur_pos = Sequence.new(0)
       @cur_seq = Sequence.new(0)
     end
 
     def cur_seq=(value : Sequence)
-      @cur_pos = (@cur_pos - value + @cur_seq) % N_ACKS
+      delta = value - @cur_seq
+      return if delta == 0
+      delta = N_ACKS if delta > N_ACKS
+      delta.times do |i|
+        index = (@cur_pos - 1 - i + 2*N_ACKS) % N_ACKS
+        @data[index] = @data[index].set_passed false
+      end
+      @cur_pos = (@cur_pos - value + @cur_seq + N_ACKS) % N_ACKS
       @cur_seq = value
     end
 
@@ -23,8 +29,13 @@ module MySync
       (@cur_pos + @cur_seq - seq) % N_ACKS
     end
 
+    private def index_to_seq(index : Int) : Sequence
+      seq = @cur_seq + @cur_pos - index
+    end
+
     def []?(seq : Sequence) : T?
       return nil if cur_seq - seq > N_ACKS
+      # p "#{seq} -> #{seq_to_index(seq)} -> #{index_to_seq(seq_to_index(seq))}"
       @data[seq_to_index(seq)]
     end
 
@@ -39,16 +50,18 @@ module MySync
     end
 
     def set_passed(seq : Sequence, value : Bool)
-      return if seq - cur_seq > N_ACKS
-      @data[seq_to_index(seq)].passed = value
+      raise "incorrect seq number" if cur_seq - seq > N_ACKS
+      @data[seq_to_index(seq)] = @data[seq_to_index(seq)].set_passed(value)
     end
   end
 end
 
 macro ackrecord(name, *properties)
   record {{name}}, passed : Bool, {{*properties}} do
-    def passed=(value : Bool)
+    def set_passed(value : Bool)
+      return self if value == self.passed
       @passed = value
+      return self
     end
     {{yield}}
   end
