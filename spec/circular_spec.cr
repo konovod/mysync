@@ -42,4 +42,19 @@ describe "CircularAckBuffer" do
     buf[122u16 + MySync::N_ACKS]?.not_nil!.payload.should eq "ack1"
     buf[122u16 + MySync::N_ACKS]?.not_nil!.passed.should be_false
   end
+
+  it "handles overflows seamlessly" do
+    ack3 = TestAck.new(true, "ack3")
+    ack4 = TestAck.new(false, "ack4")
+    buf.cur_seq = 65534u16
+    buf[65533u16] = ack3
+    buf[65534u16] = ack4
+    buf.cur_seq = 6u16
+    buf[65533u16]?.should eq ack3
+    buf[65534u16]?.should eq ack4
+  end
+
+  
+
+
 end
