@@ -2,7 +2,6 @@ require "spec"
 require "cannon"
 require "../src/mysync"
 require "../src/mysync/server"
-require "../src/mysync/serialization"
 require "../src/mysync/endpoint"
 require "../src/mysync/client"
 
