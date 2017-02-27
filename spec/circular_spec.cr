@@ -43,6 +43,19 @@ describe "CircularAckBuffer" do
     buf[122u16 + MySync::N_ACKS]?.not_nil!.passed.should be_false
   end
 
+  it "generates mask of passed packets" do
+    buf.cur_seq = 500u16
+    buf.passed_mask.should eq 0
+    buf.set_passed(500u16, true)
+    buf.passed_mask.should eq 0
+    buf.set_passed(499u16, true)
+    buf.passed_mask.should eq 1
+    buf.cur_seq = 501u16
+    buf.passed_mask.should eq 3
+    buf.cur_seq = 502u16
+    buf.passed_mask.should eq 6
+  end
+
   it "handles overflows seamlessly" do
     ack3 = TestAck.new(true, "ack3")
     ack4 = TestAck.new(false, "ack4")
@@ -52,9 +65,9 @@ describe "CircularAckBuffer" do
     buf.cur_seq = 6u16
     buf[65533u16]?.should eq ack3
     buf[65534u16]?.should eq ack4
+    buf.passed_mask.should eq (1 << 8)
   end
 
-  
 
 
 end

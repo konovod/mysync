@@ -54,6 +54,7 @@ module MySync
       if @remote_seq < header.sequence
         @remote_seq = header.sequence
         # TODO - process own ack_mask
+
       else
       end
       # TODO - process packet acks
