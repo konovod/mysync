@@ -59,17 +59,25 @@ module MySync
     abstract def on_received_sync
     abstract def before_sending_sync
 
+    private def packet_acked(data : LocalAckData)
+    end
+
     def process_receive(data : Bytes) : Nil
       @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
-      return if header.sequence == self.remote_seq
+      return if header.sequence == self.remote_seq || @remote_acks.passed(header.sequence)
       # now process packet acks
-      if remote_seq < header.sequence
+      if self.remote_seq < header.sequence
         self.remote_seq = header.sequence
         # TODO - measure percent of loss?
       end
       @remote_acks.set_passed(header.sequence, true)
       # TODO - now process packet acks
+      if header.ack > self.local_seq
+        self.local_seq = header.ack
+        packet_acked(@local_acks[header.ack]?.not_nil!)
+      end
+      @local_acks.apply_mask(header.ack_mask) { |data| packet_acked(data) }
 
       @remote_sync = Cannon.decode @io_received, RemoteSync
       on_received_sync

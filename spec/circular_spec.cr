@@ -6,9 +6,6 @@ ackrecord TestAck, payload : String
 describe "CircularAckBuffer" do
   buf = MySync::CircularAckBuffer(TestAck).new
 
-  ack1 = TestAck.new(false, "ack1")
-  ack2 = TestAck.new(false, "ack2")
-
   it "for uninitialized data passed values are false" do
     buf.passed(12345u16).should be_false
     buf.passed(0u16).should be_false
@@ -16,6 +13,9 @@ describe "CircularAckBuffer" do
   end
 
   it "saves consistency when scrolling" do
+    ack1 = TestAck.new(false, "ack1")
+    ack2 = TestAck.new(false, "ack2")
+
     buf.cur_seq = 123u16
     buf[122u16] = ack1
     buf[123u16] = ack2
@@ -58,6 +58,20 @@ describe "CircularAckBuffer" do
     buf.passed_mask.should eq (1u32 << 31u32)
     buf.cur_seq = 533u16
     buf.passed_mask.should eq 0
+  end
+
+  it "applies mask of acked packets" do
+    buf.cur_seq = 1000u16
+    33.times do |i|
+      buf[1000u16 - i] = TestAck.new(i % 2 == 0, "ack#{1000u16 - i}")
+    end
+    acked = [] of String
+    buf.apply_mask(7u32) { |x| acked << x.payload }
+    acked.should eq ["ack997", "ack999"]
+    buf.apply_mask(31u32) { |x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995"]
+    buf.apply_mask(256u32) { |x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991"]
   end
 
   it "handles overflows seamlessly" do

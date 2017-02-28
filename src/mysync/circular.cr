@@ -29,8 +29,19 @@ module MySync
       (@cur_pos + @cur_seq - seq) % N_ACKS
     end
 
-    private def index_to_seq(index : Int) : Sequence
-      seq = @cur_seq + @cur_pos - index
+    # private def index_to_seq(index : Int) : Sequence
+    #   seq = @cur_seq + @cur_pos - index
+    # end
+
+    def apply_mask(mask : AckMask)
+      (N_ACKS - 1).times do |ir|
+        i = (N_ACKS - 2) - ir
+        next if (mask & 1 << i == 0)
+        seq = @cur_seq - i - 1
+        next if passed(seq)
+        set_passed(seq, true)
+        yield(@data[@cur_pos + i + 1])
+      end
     end
 
     def []?(seq : Sequence) : T?
