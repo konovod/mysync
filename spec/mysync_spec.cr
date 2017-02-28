@@ -38,13 +38,13 @@ end
 class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
   property benchmark : Int32 = 0
   property benchmark_udp : MySync::UDPGameClient?
-  getter benchmark_chan = Channel(Nil).new
+  getter benchmark_complete = Channel(Nil).new
 
   def on_received_sync
     if @benchmark > 0
       @benchmark -= 1
       if @benchmark == 0
-        @benchmark_chan.send(nil)
+        @benchmark_complete.send(nil)
       else
         @benchmark_udp.not_nil!.send_data
       end
@@ -93,6 +93,7 @@ it "passed data are applied" do
 end
 
 srv_inst = srv.test_endpoint.not_nil!
+# TODO - specs for ack_mask
 it "update seq_iq" do
   cli.local_seq = 5u16
   cli.remote_seq = 15u16
@@ -117,7 +118,7 @@ it "gather stats for packets" do
   cli.benchmark = 1000
   cli.benchmark_udp = udp_cli
   udp_cli.send_data
-  cli.benchmark_chan.receive
+  cli.benchmark_complete.receive
   pp (Time.now - cur).to_f # *1000 / 1000
   pp cli.stat_losses
   pp cli.stat_pingtime*1000
@@ -131,6 +132,3 @@ it "disconnects old clients" do
   udp_srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2"]
 end
-
-#
-# end

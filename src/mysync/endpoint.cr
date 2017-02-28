@@ -82,10 +82,9 @@ module MySync
       # now process packet acks
       if self.remote_seq < header.sequence
         self.remote_seq = header.sequence
-        # TODO - measure percent of loss?
       end
       @remote_acks.set_passed(header.sequence, true)
-      # TODO - now process packet acks
+      # now process packet acks
       @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
       @remote_sync = Cannon.decode @io_received, RemoteSync
