@@ -29,20 +29,31 @@ module MySync
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
     property remote_sync : RemoteSync
-    property local_seq : Sequence
-    property remote_seq : Sequence
-
     def initialize
       super
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @local_sync = LocalSync.new
       @remote_sync = RemoteSync.new
-      @local_seq = 0u16
-      @remote_seq = 0u16
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
     end
+
+    def local_seq : Sequence
+      @local_acks.cur_seq
+    end
+    def remote_seq : Sequence
+      @remote_acks.cur_seq
+    end
+    #TODO - do we need them? only for spec? mock?
+    def local_seq=(value : Sequence)
+      @local_acks.cur_seq = value
+    end
+    def remote_seq=(value : Sequence)
+      @remote_acks.cur_seq = value
+    end
+
+
 
     abstract def on_received_sync
     abstract def before_sending_sync
@@ -50,14 +61,15 @@ module MySync
     def process_receive(data : Bytes) : Nil
       @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
-      return if header.sequence == @remote_seq
-      if @remote_seq < header.sequence
-        @remote_seq = header.sequence
-        # TODO - process own ack_mask
-
-      else
+      return if header.sequence == self.remote_seq
+      # now process packet acks
+      if remote_seq < header.sequence
+        self.remote_seq = header.sequence
+        #TODO - measure percent of loss?
       end
-      # TODO - process packet acks
+      @remote_acks.set_passed(header.sequence, true)
+      # TODO - now process packet acks
+
       @remote_sync = Cannon.decode @io_received, RemoteSync
       on_received_sync
       # TODO - process async
@@ -65,9 +77,8 @@ module MySync
 
     def process_sending : Bytes
       @io_tosend.rewind
-      # TODO - fill ack_mask
-      @local_seq += 1
-      header = PacketHeader.new(@local_seq, @remote_seq, 0u32)
+      self.local_seq += 1
+      header = PacketHeader.new(self.local_seq, self.remote_seq, @remote_acks.passed_mask)
       Cannon.encode @io_tosend, header
       before_sending_sync
       Cannon.encode @io_tosend, @local_sync

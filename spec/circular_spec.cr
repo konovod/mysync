@@ -54,6 +54,10 @@ describe "CircularAckBuffer" do
     buf.passed_mask.should eq 3
     buf.cur_seq = 502u16
     buf.passed_mask.should eq 6
+    buf.cur_seq = 532u16
+    buf.passed_mask.should eq (1u32<<31u32)
+    buf.cur_seq = 533u16
+    buf.passed_mask.should eq 0
   end
 
   it "handles overflows seamlessly" do

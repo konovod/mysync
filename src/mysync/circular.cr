@@ -40,7 +40,7 @@ module MySync
     end
 
     def []=(seq : Sequence, value : T) : Nil
-      raise "incorrect seq number" if cur_seq - seq > N_ACKS
+      raise "incorrect seq number #{seq} at current #{cur_seq}" if cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = value
     end
 
@@ -50,7 +50,7 @@ module MySync
     end
 
     def set_passed(seq : Sequence, value : Bool)
-      raise "incorrect seq number" if cur_seq - seq > N_ACKS
+      raise "incorrect seq number #{seq} at current #{cur_seq}" if cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = @data[seq_to_index(seq)].set_passed(value)
     end
 
