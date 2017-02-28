@@ -50,7 +50,7 @@ struct TestServerOutput
 end
 
 # compiler bug?
-# see https://github.com/crystal-lang/crystal/pull/3972
+# TODO - identify minimal example
 ######################
 macro solve_bug
 
