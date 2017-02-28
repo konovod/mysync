@@ -73,11 +73,7 @@ module MySync
       end
       @remote_acks.set_passed(header.sequence, true)
       # TODO - now process packet acks
-      if header.ack > self.local_seq
-        self.local_seq = header.ack
-        packet_acked(@local_acks[header.ack]?.not_nil!)
-      end
-      @local_acks.apply_mask(header.ack_mask) { |data| packet_acked(data) }
+      @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
       @remote_sync = Cannon.decode @io_received, RemoteSync
       on_received_sync

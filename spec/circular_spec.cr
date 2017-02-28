@@ -65,13 +65,18 @@ describe "CircularAckBuffer" do
     33.times do |i|
       buf[1000u16 - i] = TestAck.new(i % 2 == 0, "ack#{1000u16 - i}")
     end
+    buf.cur_seq = 1005u16
     acked = [] of String
-    buf.apply_mask(7u32) { |x| acked << x.payload }
+    buf.apply_mask(1000u16, 7u32) { |x| acked << x.payload }
     acked.should eq ["ack997", "ack999"]
-    buf.apply_mask(31u32) { |x| acked << x.payload }
+    buf.apply_mask(1000u16, 31u32) { |x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995"]
-    buf.apply_mask(256u32) { |x| acked << x.payload }
+    buf.apply_mask(999u16, 128u32) { |x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995", "ack991"]
+    buf.apply_mask(935u16, 65535u32) { |x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991"]
+    buf.apply_mask(976u16, 0xFFFFFFFFu32) { |x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991", "ack973", "ack975"]
   end
 
   it "handles overflows seamlessly" do

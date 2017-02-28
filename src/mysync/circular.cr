@@ -33,14 +33,16 @@ module MySync
     #   seq = @cur_seq + @cur_pos - index
     # end
 
-    def apply_mask(mask : AckMask)
-      (N_ACKS - 1).times do |ir|
-        i = (N_ACKS - 2) - ir
-        next if (mask & 1 << i == 0)
-        seq = @cur_seq - i - 1
+    def apply_mask(start : Sequence, mask : AckMask)
+      return if start <= @cur_seq - N_ACKS
+      N_ACKS.times do |ir|
+        i = (N_ACKS - 1) - ir
+        next if (i > 0) && (mask & 1 << (i - 1) == 0)
+        seq = start - i
+        next if seq <= @cur_seq - N_ACKS
         next if passed(seq)
         set_passed(seq, true)
-        yield(@data[@cur_pos + i + 1])
+        yield(@data[seq_to_index(seq)])
       end
     end
 
