@@ -4,7 +4,6 @@ require "./endpoint_interface"
 require "./circular"
 
 module MySync
-
   MAX_PACKAGE_SIZE = 1024
 
   @[Packed]
@@ -29,6 +28,7 @@ module MySync
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
     property remote_sync : RemoteSync
+
     def initialize
       super
       @io_received = MyMemory.new(1)
@@ -42,18 +42,19 @@ module MySync
     def local_seq : Sequence
       @local_acks.cur_seq
     end
+
     def remote_seq : Sequence
       @remote_acks.cur_seq
     end
-    #TODO - do we need them? only for spec? mock?
+
+    # TODO - do we need them? only for spec? mock?
     def local_seq=(value : Sequence)
       @local_acks.cur_seq = value
     end
+
     def remote_seq=(value : Sequence)
       @remote_acks.cur_seq = value
     end
-
-
 
     abstract def on_received_sync
     abstract def before_sending_sync
@@ -65,7 +66,7 @@ module MySync
       # now process packet acks
       if remote_seq < header.sequence
         self.remote_seq = header.sequence
-        #TODO - measure percent of loss?
+        # TODO - measure percent of loss?
       end
       @remote_acks.set_passed(header.sequence, true)
       # TODO - now process packet acks

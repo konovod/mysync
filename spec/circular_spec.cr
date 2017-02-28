@@ -55,7 +55,7 @@ describe "CircularAckBuffer" do
     buf.cur_seq = 502u16
     buf.passed_mask.should eq 6
     buf.cur_seq = 532u16
-    buf.passed_mask.should eq (1u32<<31u32)
+    buf.passed_mask.should eq (1u32 << 31u32)
     buf.cur_seq = 533u16
     buf.passed_mask.should eq 0
   end
@@ -71,7 +71,4 @@ describe "CircularAckBuffer" do
     buf[65534u16]?.should eq ack4
     buf.passed_mask.should eq (1 << 8)
   end
-
-
-
 end

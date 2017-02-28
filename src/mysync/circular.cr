@@ -56,15 +56,15 @@ module MySync
 
     def passed_mask : AckMask
       result = 0u32
-      (N_ACKS-1).times do |i|
-        result |= 1 << i if @data[(@cur_pos+i+1) % N_ACKS].passed
+      (N_ACKS - 1).times do |i|
+        result |= 1 << i if @data[(@cur_pos + i + 1) % N_ACKS].passed
       end
       result
     end
   end
 end
 
-#TODO - move passed to bitmap
+# TODO - move passed to bitmap
 macro ackrecord(name, *properties)
   record {{name}}, passed : Bool, {{*properties}} do
     def set_passed(value : Bool)
