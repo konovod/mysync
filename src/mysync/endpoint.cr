@@ -2,6 +2,7 @@ require "cannon"
 require "./endpoint_types"
 require "./endpoint_interface"
 require "./circular"
+require "./stats"
 
 module MySync
   MAX_PACKAGE_SIZE = 1024
@@ -59,7 +60,19 @@ module MySync
     abstract def on_received_sync
     abstract def before_sending_sync
 
+    @ping_time = FilteredAVG.new
+    @losses = CountingAVG.new
+
+    def stat_pingtime
+      @ping_time.value
+    end
+
+    def stat_losses
+      @losses.value
+    end
+
     private def packet_acked(data : LocalAckData)
+      @ping_time.add(Time.now - data.sent)
     end
 
     def process_receive(data : Bytes) : Nil
@@ -82,7 +95,9 @@ module MySync
 
     def process_sending : Bytes
       @io_tosend.rewind
+      @losses.add !@local_acks.passed(self.local_seq - (N_ACKS - 2))
       self.local_seq += 1
+      @local_acks[self.local_seq] = LocalAckData.new(false, Time.now)
       header = PacketHeader.new(self.local_seq, self.remote_seq, @remote_acks.passed_mask)
       Cannon.encode @io_tosend, header
       before_sending_sync
