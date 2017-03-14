@@ -60,7 +60,7 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
   solve_bug
 end
 
-secret_key = Crypto::SecretKey.new("c4b12631c3f68e7a72fc760a31ffaae0a7a5f8d892cac43c0d8d06acd1b3fd8f")
+secret_key = Crypto::SecretKey.new
 public_key = Crypto::PublicKey.new(secret: secret_key)
 
 srv = TestServer.new

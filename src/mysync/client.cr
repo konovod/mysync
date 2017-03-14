@@ -26,7 +26,7 @@ module MySync
       # first it decrypts and check
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
-      return unless Crypto.symmetric_decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
       # then pass to endpoint
       @endpoint.process_receive(@received_decrypted.slice)
     end
@@ -48,12 +48,19 @@ module MySync
     end
 
     def login(public_key : Crypto::PublicKey, authdata : Bytes) : Bytes?
-      # we encrypt symmetric_key and auth data with server's public key
-      plaintext = Bytes.new(Crypto::SymmetricKey.size + authdata.size)
-      plaintext[0, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
-      plaintext[Crypto::SymmetricKey.size, authdata.size].copy_from authdata
-      @tosend.size = plaintext.size + Crypto::OVERHEAD_ANONYMOUS + 4
-      Crypto.asymmetric_encrypt(their_public: public_key, input: plaintext, output: @tosend.slice[4, @tosend.size - 4])
+      secret_key = Crypto::SecretKey.new
+      @symmetric_key = Crypto::SymmetricKey.new(our_secret: secret_key, their_public: public_key)
+      our_public = Crypto::PublicKey.new(secret: secret_key)
+      # we encrypt auth data and add our public key as additional data
+      @tosend.size = 4 + Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC + authdata.size
+      @tosend.slice[4, Crypto::PublicKey.size].copy_from our_public.to_slice
+      @nonce.reroll
+      Crypto.encrypt(
+        key: @symmetric_key,
+        input: authdata,
+        nonce: @nonce,
+        additional: our_public.to_slice,
+        output: @tosend.slice[4 + Crypto::PublicKey.size, authdata.size + Crypto::OVERHEAD_SYMMETRIC])
       # send it to server
       @tosend_header.value = RIGHT_SIGN
       begin
@@ -70,7 +77,7 @@ module MySync
       # decrypt it with symmetric_key
       return nil if package.size < Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
-      return nil unless Crypto.symmetric_decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      return nil unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
       # all is fine, copy data to output and start listening
       data = Bytes.new(@received_decrypted.size)
       data.copy_from @received_decrypted.slice
@@ -83,7 +90,7 @@ module MySync
       # then encrypt
       @nonce.reroll
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      Crypto.encrypt(key: @symmetric_key, nonce: @nonce, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       @tosend_header.value = RIGHT_SIGN
       begin

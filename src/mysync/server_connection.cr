@@ -43,7 +43,7 @@ module MySync
         # first it decrypts and check
         return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
         @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
-        return unless Crypto.symmetric_decrypt(
+        return unless Crypto.decrypt(
                         key: @symmetric_key,
                         input: @received.slice,
                         output: @received_decrypted.slice)
@@ -52,18 +52,18 @@ module MySync
         point.process_receive(@received_decrypted.slice)
         tosend_decrypted = point.process_sending
       else
-        # here is anonymously encrypted packet with symmetric_key and auth data
-        return if @received.size - Crypto::OVERHEAD_ANONYMOUS <= Crypto::SymmetricKey.size
-        @received_decrypted.size = @received.size - Crypto::OVERHEAD_ANONYMOUS
-        return unless Crypto.asymmetric_decrypt(
-                        your_secret: @secret_key,
-                        input: @received.slice,
+        # here is encrypted packet with client public key as additional data
+        return if @received.size <= Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
+        @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
+        akey = Crypto::PublicKey.new(raw: @received.slice[0, Crypto::PublicKey.size])
+        @symmetric_key = Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: akey)
+        return unless Crypto.decrypt(
+                        key: @symmetric_key,
+                        input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
+                        additional: @received.slice[0, Crypto::PublicKey.size],
                         output: @received_decrypted.slice)
-        authdata = @received_decrypted.slice[Crypto::SymmetricKey.size, @received_decrypted.size - Crypto::SymmetricKey.size]
-        received_key = @received_decrypted.slice[0, Crypto::SymmetricKey.size]
-        tuple = @endpoint_factory.new_endpoint(authdata)
+        tuple = @endpoint_factory.new_endpoint(@received_decrypted.slice)
         return unless tuple
-        @symmetric_key.to_slice.copy_from(received_key)
         @endpoint = tuple[:endpoint]
         # now send response
         tosend_decrypted = tuple[:response]
@@ -72,7 +72,7 @@ module MySync
       @nonce.reroll
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4
       @header.value = RIGHT_SIGN
-      Crypto.symmetric_encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
+      Crypto.encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       begin
         @socket.send(@tosend.slice, @address)
