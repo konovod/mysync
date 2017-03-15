@@ -16,7 +16,6 @@ module MySync
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_PACKAGE_SIZE)
       @tosend_header = @tosend.to_unsafe.as(UInt32*)
-      @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
       @received_header = @raw_received.to_unsafe.as(UInt32*)
     end
@@ -54,11 +53,9 @@ module MySync
       # we encrypt auth data and add our public key as additional data
       @tosend.size = 4 + Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC + authdata.size
       @tosend.slice[4, Crypto::PublicKey.size].copy_from our_public.to_slice
-      @nonce.reroll
       Crypto.encrypt(
         key: @symmetric_key,
         input: authdata,
-        nonce: @nonce,
         additional: our_public.to_slice,
         output: @tosend.slice[4 + Crypto::PublicKey.size, authdata.size + Crypto::OVERHEAD_SYMMETRIC])
       # send it to server
@@ -88,9 +85,8 @@ module MySync
     def send_data
       data = @endpoint.process_sending
       # then encrypt
-      @nonce.reroll
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
-      Crypto.encrypt(key: @symmetric_key, nonce: @nonce, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       @tosend_header.value = RIGHT_SIGN
       begin

@@ -26,7 +26,6 @@ module MySync
       @header = @tosend.to_unsafe.as(UInt32*)
 
       @control = Channel(ConnectionCommand).new
-      @nonce = Crypto::Nonce.new
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
@@ -55,7 +54,7 @@ module MySync
         # here is encrypted packet with client public key as additional data
         return if @received.size <= Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
         @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
-        akey = Crypto::PublicKey.new(raw: @received.slice[0, Crypto::PublicKey.size])
+        akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
         @symmetric_key = Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: akey)
         return unless Crypto.decrypt(
                         key: @symmetric_key,
@@ -69,10 +68,9 @@ module MySync
         tosend_decrypted = tuple[:response]
       end
       # then encrypt
-      @nonce.reroll
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4
       @header.value = RIGHT_SIGN
-      Crypto.encrypt(key: @symmetric_key, nonce: @nonce, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
+      Crypto.encrypt(key: @symmetric_key, input: tosend_decrypted, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       begin
         @socket.send(@tosend.slice, @address)
