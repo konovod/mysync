@@ -12,9 +12,9 @@ module MySync
       @socket = UDPSocket.new
       @socket.read_timeout = Time::Span.new(0, 0, 1)
       @socket.connect @address
-      @raw_received = Bytes.new(MAX_PACKAGE_SIZE)
+      @raw_received = Bytes.new(MAX_RAW_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
-      @tosend = Package.new(MAX_PACKAGE_SIZE)
+      @tosend = Package.new(MAX_RAW_SIZE)
       @tosend_header = @tosend.to_unsafe.as(UInt32*)
       @symmetric_key = Crypto::SymmetricKey.new
       @received_header = @raw_received.to_unsafe.as(UInt32*)
@@ -39,8 +39,8 @@ module MySync
     private def reading_fiber
       loop do
         size, ip = try_receive
-        next if size < 4
-        next if size > MAX_PACKAGE_SIZE
+        next if size < MIN_RAW_SIZE
+        next if size > MAX_RAW_SIZE
         next if @received_header.value != RIGHT_SIGN
         package_received @raw_received[4, size - 4]
       end
@@ -67,8 +67,8 @@ module MySync
       end
       # wait for response
       size, ip = @socket.receive(@raw_received)
-      return nil if size < 4
-      return nil if size > MAX_PACKAGE_SIZE
+      return nil if size < MIN_RAW_SIZE
+      return nil if size > MAX_RAW_SIZE
       return nil if @received_header.value != RIGHT_SIGN
       package = @raw_received[4, size - 4]
       # decrypt it with symmetric_key

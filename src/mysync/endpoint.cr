@@ -105,9 +105,4 @@ module MySync
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)
     end
   end
-
-  # abstract class AsyncCommand
-  #   abstract def perform(user : UserContext)
-  # end
-
 end

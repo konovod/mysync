@@ -20,9 +20,9 @@ module MySync
     def initialize(@address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory, @secret_key : Crypto::SecretKey)
       @last_message = Time.now
-      @received = Package.new(MAX_PACKAGE_SIZE)
+      @received = Package.new(MAX_RAW_SIZE) # TODO - remove small tail?
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
-      @tosend = Package.new(MAX_PACKAGE_SIZE)
+      @tosend = Package.new(MAX_RAW_SIZE)
       @header = @tosend.to_unsafe.as(UInt32*)
 
       @control = Channel(ConnectionCommand).new

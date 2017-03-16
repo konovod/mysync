@@ -14,7 +14,7 @@ module MySync
       @banned = Set(Address).new
       @socket = UDPSocket.new(Socket::Family::INET)
       @socket.bind("0.0.0.0", @port)
-      @single_buffer = Bytes.new(MAX_PACKAGE_SIZE)
+      @single_buffer = Bytes.new(MAX_RAW_SIZE)
       @header = @single_buffer.to_unsafe.as(UInt32*)
       spawn { listen_fiber }
       spawn { timed_fiber }
@@ -38,8 +38,8 @@ module MySync
     private def listen_fiber
       loop do
         size, ip = @socket.receive(@single_buffer)
-        next if size < 4
-        next if size > MAX_PACKAGE_SIZE
+        next if size < MIN_RAW_SIZE
+        next if size > MAX_RAW_SIZE
         next if @header.value != RIGHT_SIGN
         next if @banned.includes? ip
         conn = get_connection(ip)
