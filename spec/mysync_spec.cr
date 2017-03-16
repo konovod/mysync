@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "cannon/rpc"
 
 class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
   def on_disconnect
@@ -123,6 +124,8 @@ it "gather stats for packets" do
   pp cli.stat_losses
   pp cli.stat_pingtime*1000
 end
+
+spec_rpc(cli, srv)
 
 it "disconnects old clients" do
   SpecLogger.dump_events
