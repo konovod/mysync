@@ -16,9 +16,12 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : AbstractEndPoint?
+    getter rpc_connection : CannonInterface?
+    getter rpc_manager
 
     def initialize(@address : Address, @socket : UDPSocket,
-                   @endpoint_factory : EndPointFactory, @secret_key : Crypto::SecretKey)
+                   @endpoint_factory : EndPointFactory,
+                   @secret_key : Crypto::SecretKey, @rpc_manager : Cannon::Rpc::Manager)
       @last_message = Time.now
       @received = Package.new(MAX_RAW_SIZE) # TODO - remove small tail?
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -66,6 +69,8 @@ module MySync
         @endpoint = tuple[:endpoint]
         # now send response
         tosend_decrypted = tuple[:response]
+        # and init rpc connection
+        @rpc_connection = CannonInterface.new tuple[:endpoint], @rpc_manager
       end
       # then encrypt
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4

@@ -8,6 +8,7 @@ require "./server_connection"
 module MySync
   class UDPGameServer
     @header : UInt32*
+    getter rpc_manager
 
     def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
       @connections = Hash(AddressHash, GameConnection).new
@@ -16,6 +17,7 @@ module MySync
       @socket.bind("0.0.0.0", @port)
       @single_buffer = Bytes.new(MAX_RAW_SIZE)
       @header = @single_buffer.to_unsafe.as(UInt32*)
+      @rpc_manager = Cannon::Rpc::Manager.new
       spawn { listen_fiber }
       spawn { timed_fiber }
     end
@@ -29,7 +31,7 @@ module MySync
       conn1 = @connections[MySync.addr_hash(ip)]?
       return conn1 if conn1
       p "adding connection #{ip}"
-      conn2 = GameConnection.new(ip, @socket, @endpoint_factory, @secret_key)
+      conn2 = GameConnection.new(ip, @socket, @endpoint_factory, @secret_key, @rpc_manager)
       @connections[MySync.addr_hash(ip)] = conn2
       spawn { conn2.execute }
       return conn2

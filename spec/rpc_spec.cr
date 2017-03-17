@@ -23,13 +23,18 @@ class GreetService
   end
 end
 
+class GreetClient
+  include Cannon::Rpc::RemoteService(GreetDescription)
+end
+
 # service_manager = Cannon::Rpc::Manager.new
 # service_manager.add GreetService.new
 #
 # it "do async commands" do
 # end
 def spec_rpc(cli, srv)
-  it "works" do
-    false.should eq true
-  end
+  greeter = GreetClient.new cli.rpc_connection
+  srv.rpc_manager.add GreetService.new
+
+  # greeter.ping(Time.now)
 end

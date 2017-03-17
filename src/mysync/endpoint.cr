@@ -3,6 +3,7 @@ require "./endpoint_types"
 require "./endpoint_interface"
 require "./circular"
 require "./stats"
+require "./async_command"
 
 module MySync
   MAX_PACKAGE_SIZE = 1024
@@ -34,6 +35,7 @@ module MySync
       super
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
+      @async_tosend = AsyncBuffer.new
       @local_sync = LocalSync.new
       @remote_sync = RemoteSync.new
       @remote_acks = CircularAckBuffer(RemoteAckData).new
