@@ -7,24 +7,24 @@ module MySync
   class PackedCommand
     getter data
 
-    def initialize(@id : UInt32)
+    def initialize(service_id : UInt32, function_hash : UInt32, arguments : Tuple?)
       @data = IO::Memory.new
+      Cannon.encode @data, service_id
+      Cannon.encode @data, function_hash
+      Cannon.encode @data, arguments
     end
   end
 
   class AsyncBuffer
     def initialize
-      @cur_id = 0
       @commands = Array(PackedCommand).new
     end
 
-    def push_command(service_id : UInt32, function_hash : UInt32, arguments : Tuple?)
-      @cur_id += 1
-      cmd = PackedCommand.new(@cur_id)
-      Cannon.encode cmd.data, service_id
-      Cannon.encode cmd.data, function_hash
-      Cannon.encode cmd.data, arguments
+    def push(cmd)
       @commands << cmd
+    end
+
+    def pop(io : IO, remaining_size : Int32)
     end
   end
 
