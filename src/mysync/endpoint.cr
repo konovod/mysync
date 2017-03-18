@@ -35,7 +35,6 @@ module MySync
       super
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
-      @async_tosend = AsyncBuffer.new
       @local_sync = LocalSync.new
       @remote_sync = RemoteSync.new
       @remote_acks = CircularAckBuffer(RemoteAckData).new
@@ -101,7 +100,7 @@ module MySync
       @losses.add !@local_acks.passed(self.local_seq - (N_ACKS - 2))
       # restart non acked commands
       if data = @local_acks[self.local_seq - (N_ACKS - 2)]?
-        data.commands.each { |cmd| @async_tosend.push cmd }
+        data.commands.each { |cmd| @async_buffer.push cmd }
       end
       self.local_seq += 1
       # asyncs =

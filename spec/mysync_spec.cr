@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "./rpc_spec"
 require "cannon/rpc"
 
 class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)

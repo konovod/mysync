@@ -1,11 +1,14 @@
+require "cannon"
 require "cannon/rpc"
 
 module MySync
   # TODO - later optimize to single buffer
-  # record CmdOffset, offset : Int32, size : Int32
+  # record PackedCommand, offset : Int32, size : Int32
+  alias ReceiveChannel = Channel(IO::Memory)
 
   class PackedCommand
     getter data
+    property complete_channel : ReceiveChannel?
 
     def initialize(service_id : UInt32, function_hash : UInt32, arguments : Tuple?)
       @data = IO::Memory.new
@@ -18,19 +21,27 @@ module MySync
   class AsyncBuffer
     def initialize
       @commands = Array(PackedCommand).new
+      @channels = Array(ReceiveChannel).new
     end
 
     def push(cmd)
+      cmd.complete_channel = @channels.pop? || ReceiveChannel.new
+      @commands << cmd
+      return cmd.complete_channel
+    end
+
+    def recycle(channel)
+      @channels << channel
+    end
+
+    def push_noanswer(cmd) : Nil
       @commands << cmd
     end
 
-    def pop(io : IO, remaining_size : Int32)
-    end
-  end
-
-  abstract class AbstractEndPoint
-    def add_command(service_id : UInt32, function_hash : UInt32, arguments : Tuple?)
-      @async_tosend.push_command service_id, function_hash, arguments
+    def pop(remaining_size : Int32) : PackedCommand
+      result = @commands.first { |cmd| cmd.data.size <= remaining_size }
+      @commands.remove result
+      result
     end
   end
 
@@ -48,6 +59,10 @@ module MySync
     #
     # This method blocks the current Fiber.
     def call_remotely(service_id : UInt32, function_hash : UInt32, arguments : Tuple?, &block : IO -> _)
+      done = @endpoint.async_buffer.push(PackedCommand.new(service_id, function_hash, arguments)).not_nil!
+      io = done.receive
+      yield(io)
+      @endpoint.async_buffer.recycle done
     end
 
     # Like `call_remotely`, but doesn't request a response.  A response is
@@ -58,7 +73,7 @@ module MySync
     #
     # This method **does not** block the current Fiber.
     def call_remotely(service_id : UInt32, function_hash : UInt32, arguments : Tuple?)
-      @endpoint.add_command(service_id, function_hash, arguments)
+      @endpoint.async_buffer.push_noanswer PackedCommand.new(service_id, function_hash, arguments)
     end
 
     # Releases the remote *service_id*
