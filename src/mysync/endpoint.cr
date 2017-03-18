@@ -109,7 +109,13 @@ module MySync
       Cannon.encode @io_tosend, header
       before_sending_sync
       Cannon.encode @io_tosend, @local_sync
-      # TODO - process async
+      # process async
+      # TODO - check if too big and split
+      remains = MAX_PACKAGE_SIZE - @io_tosend.pos
+      while remains > 0 && (cmd = @async_buffer.pop(remains))
+        @io_tosend.write(cmd.data.to_slice)
+        remains -= cmd.data.size
+      end
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)
     end
   end

@@ -38,9 +38,9 @@ module MySync
       @commands << cmd
     end
 
-    def pop(remaining_size : Int32) : PackedCommand
-      result = @commands.first { |cmd| cmd.data.size <= remaining_size }
-      @commands.remove result
+    def pop(remaining_size : Int32) : PackedCommand?
+      result = @commands.find { |cmd| cmd.data.size <= remaining_size }
+      @commands.delete result if result
       result
     end
   end

@@ -43,7 +43,7 @@ def spec_rpc(cli, srv)
 
   SpecLogger.dump_events
   # greeter.ping(Time.now)
-  greeter.no_answer "test"
+  greeter.no_answer_without_response "test"
   cli.send_data
   sleep 0.1
   p SpecLogger.dump_events
