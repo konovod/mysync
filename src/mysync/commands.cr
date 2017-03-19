@@ -2,28 +2,27 @@ module MySync
   # TODO - later optimize to single buffer
   # record Command, offset : Int32, size : Int32
   RESEND_TIME = (0.2).seconds
+  alias CmdSize = UInt8
 
   class Command
     getter data
     property sent : Time
     getter id
 
-    def need_answer : Bool
-      @complete_channel
-    end
-
-    def initialize(@id : Int32, @data : Bytes, @complete_channel : ReceiveChannel?)
-      @sent = Time.now - 1.seconds
+    def initialize(@id : UInt32, @data : Bytes)
+      @sent = Time.now - RESEND_TIME*2
     end
   end
 
   class CommandBuffer
     def initialize
       @commands = Array(Command).new
-      @last_sent_id = 0
+      @last_sent_id = 0u32
     end
 
-    def add(cmd) : Nil
+    def add(data : Bytes) : Nil
+      @last_sent_id += 1
+      cmd = Command.new(@last_sent_id, data)
       @commands << cmd
     end
 

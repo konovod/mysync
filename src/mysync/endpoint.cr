@@ -3,7 +3,7 @@ require "./endpoint_types"
 require "./endpoint_interface"
 require "./circular"
 require "./stats"
-require "./async_commands"
+require "./commands"
 
 module MySync
   MAX_PACKAGE_SIZE = 1024
@@ -77,6 +77,10 @@ module MySync
       data.commands.each { |cmd| @cmd_buffer.acked cmd }
     end
 
+    def command_received(data : Bytes)
+      p "received! #{data}"
+    end
+
     def process_receive(data : Bytes) : Nil
       @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
@@ -94,7 +98,16 @@ module MySync
       on_received_sync if most_recent # TODO add size field to skip decoding OoO packets?
 
       # TODO - process async
-      # while
+
+      while @io_received.pos < @io_received.size
+        id = @io_received.read_bytes(UInt32)
+        size = @io_received.read_bytes(CmdSize)
+        raise "wrong command size: #{size} > #{@io_received.size - @io_received.pos}" if size > @io_received.size - @io_received.pos
+        data = Bytes.new(size)
+        @io_received.read(data)
+        command_received(data)
+      end
+      # pp @io_received.pos, @io_received.size
     end
 
     def process_sending : Bytes
@@ -110,8 +123,11 @@ module MySync
       # process async
       # TODO - check if too big and split
       @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - @io_tosend.pos, Time.now) do |cmd|
+        @io_tosend.write_bytes(cmd.id)
+        @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
         @io_tosend.write(cmd.data.to_slice)
         cur_commands << cmd
+        p "adding #{cmd.data}"
         true
       end
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)

@@ -1,6 +1,6 @@
 require "cannon"
 require "cannon/rpc"
-require "./async_commands"
+require "./commands"
 
 module MySync
   private alias ReceiveChannel = Channel(IO::Memory)

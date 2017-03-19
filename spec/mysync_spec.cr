@@ -126,7 +126,7 @@ it "gather stats for packets" do
   pp cli.stat_pingtime*1000
 end
 
-spec_rpc(udp_cli, udp_srv)
+spec_rpc(cli, srv_inst, udp_cli, udp_srv)
 
 it "disconnects old clients" do
   SpecLogger.dump_events

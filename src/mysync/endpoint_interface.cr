@@ -1,4 +1,4 @@
-require "./async_commands"
+require "./commands"
 
 module MySync
   abstract class AbstractEndPoint
