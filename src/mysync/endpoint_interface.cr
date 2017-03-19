@@ -1,13 +1,13 @@
-require "./async_command"
+require "./async_commands"
 
 module MySync
   abstract class AbstractEndPoint
     getter requested_disconnect : Bool
-    getter async_buffer : AsyncBuffer
+    getter cmd_buffer : CommandBuffer
 
     def initialize
       @requested_disconnect = false
-      @async_buffer = AsyncBuffer.new
+      @cmd_buffer = CommandBuffer.new
     end
 
     abstract def process_receive(data : Bytes) : Nil
