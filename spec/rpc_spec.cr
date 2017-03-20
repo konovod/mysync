@@ -56,4 +56,19 @@ def spec_rpc(cli, srv_inst, udp_cli, udp_srv)
   udp_cli.send_data
   sleep 0.1
   p SpecLogger.dump_events
+
+  spawn do
+    pp greeter.greet("Alice")
+    start = Time.now
+    pong = greeter.ping Time.now
+    finish = Time.now
+    puts "      Ping time: #{pong - start}"
+    puts "Round-trip time: #{finish - start}"
+  end
+
+  5.times do
+    udp_cli.send_data
+    sleep 0.1
+  end
+  p SpecLogger.dump_events
 end
