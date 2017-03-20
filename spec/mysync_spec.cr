@@ -41,6 +41,7 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
   property benchmark : Int32 = 0
   property benchmark_udp : MySync::UDPGameClient?
   getter benchmark_complete = Channel(Nil).new
+  property wait_answer : Channel(Nil)?
 
   def on_received_sync
     if @benchmark > 0
@@ -51,7 +52,11 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
         @benchmark_udp.not_nil!.send_data
       end
     else
-      SpecLogger.log_cli "received"
+      if w = @wait_answer
+        w.send(nil)
+      else
+        SpecLogger.log_cli "received"
+      end
     end
   end
 
@@ -60,6 +65,14 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
   end
 
   solve_bug
+end
+
+def one_exchange(cli, udp_cli)
+  ans = Channel(Nil).new
+  cli.wait_answer = ans
+  udp_cli.send_data
+  ans.receive
+  cli.wait_answer = nil
 end
 
 secret_key = Crypto::SecretKey.new
@@ -88,8 +101,9 @@ it "passed data are applied" do
   cli.local_sync.data = "hello"
   cli.local_sync.num = 5
 
-  udp_cli.send_data
-  sleep 0.1
+  # udp_cli.send_data
+  # sleep 0.1
+  one_exchange(cli, udp_cli)
 
   srv.state.all_data[5].should eq "hello"
   cli.remote_sync.all_data[5].should eq "hello"
@@ -103,14 +117,12 @@ it "update seq_iq" do
   srv_inst.local_seq = 18u16
   srv_inst.remote_seq = 7u16
 
-  udp_cli.send_data
-  sleep 0.1
+  one_exchange(cli, udp_cli)
 
   cli.local_seq.should eq 6u16
   srv_inst.remote_seq.should eq 7u16
 
-  udp_cli.send_data
-  sleep 0.1
+  one_exchange(cli, udp_cli)
 
   srv_inst.local_seq.should eq 20u16
   cli.remote_seq.should eq 20u16
