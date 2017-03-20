@@ -35,6 +35,21 @@ class TestServer
     @test_endpoint = point
     {endpoint: point, response: "you_can_pass".to_slice}
   end
+
+  def on_connecting(ip : Socket::IPAddress)
+    p "adding connection #{ip}"
+    SpecLogger.log_srv "adding connection"
+  end
+
+  def on_disconnecting(ip : Socket::IPAddress, ex : Exception?)
+    if ex
+      p "connection #{ip} raised #{ex}"
+      SpecLogger.log_srv "connection raised #{ex}"
+    else
+      p "connection #{ip} complete"
+      SpecLogger.log_srv "connection complete"
+    end
+  end
 end
 
 class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
@@ -88,7 +103,7 @@ udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 1200
 it "test login" do
   answer = udp_cli.login(public_key, "it_s_me".to_slice)
   String.new(answer.not_nil!).should eq "you_can_pass"
-  SpecLogger.dump_events.should eq ["SERVER: logged in: it_s_me"]
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_me"]
 end
 
 it "basic data exchange" do
@@ -148,5 +163,5 @@ it "disconnects old clients" do
   udp_srv.disconnect_delay = 0.01.seconds
   sleep(0.3.seconds)
   udp_srv.n_clients.should eq 0
-  SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2"]
+  SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2", "SERVER: connection complete"]
 end

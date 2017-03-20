@@ -36,10 +36,19 @@ module MySync
       # cleanup_connections
       conn1 = @connections[MySync.addr_hash(ip)]?
       return conn1 if conn1
-      p "adding connection #{ip}"
+      @endpoint_factory.on_connecting(ip)
       conn2 = GameConnection.new(ip, @socket, @endpoint_factory, self)
       @connections[MySync.addr_hash(ip)] = conn2
-      spawn { conn2.execute }
+      spawn do
+        begin
+          conn2.execute
+          @endpoint_factory.on_disconnecting(ip, nil)
+        rescue ex
+          @endpoint_factory.on_disconnecting(ip, ex)
+        ensure
+          @connections.delete(MySync.addr_hash(ip))
+        end
+      end
       return conn2
     end
 

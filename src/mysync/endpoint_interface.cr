@@ -21,5 +21,7 @@ module MySync
 
   module EndPointFactory
     abstract def new_endpoint(authdata : Bytes) : {endpoint: AbstractEndPoint, response: Bytes}?
+    abstract def on_connecting(ip : Address)
+    abstract def on_disconnecting(ip : Address, ex : Exception?)
   end
 end
