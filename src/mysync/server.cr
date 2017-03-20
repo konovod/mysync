@@ -9,7 +9,7 @@ module MySync
   class UDPGameServer
     @header : UInt32*
     getter rpc_manager
-    getter disconnect_delay
+    property disconnect_delay
 
     def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
       @disconnect_delay = Time::Span.new(0, 0, 1)

@@ -5,8 +5,7 @@ require "./endpoint"
 module MySync
   alias Address = Socket::IPAddress
   alias AddressHash = LibC::Sockaddr
-  RIGHT_SIGN       = 0xC4AC7BEu32
-  DISCONNECT_DELAY = Time::Span.new(0, 0, 1)
+  RIGHT_SIGN = 0xC4AC7BEu32
 
   MAX_RAW_SIZE = MAX_PACKAGE_SIZE + 4 + Crypto::OVERHEAD_SYMMETRIC
   MIN_RAW_SIZE = 4 + Crypto::OVERHEAD_SYMMETRIC

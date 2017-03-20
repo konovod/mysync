@@ -67,6 +67,7 @@ public_key = Crypto::PublicKey.new(secret: secret_key)
 
 srv = TestServer.new
 udp_srv = MySync::UDPGameServer.new(srv, 12000, secret_key)
+udp_srv.disconnect_delay = 1.minutes
 
 cli = TestClientEndpoint.new
 udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000))
@@ -132,7 +133,8 @@ it "disconnects old clients" do
   SpecLogger.dump_events
   SpecLogger.dump_events.size.should eq 0
   udp_srv.n_clients.should eq 1
-  sleep(1.5)
+  udp_srv.disconnect_delay = 0.01.seconds
+  sleep(0.3.seconds)
   udp_srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2"]
 end

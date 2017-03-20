@@ -8,8 +8,10 @@ module MySync
   class UDPGameClient
     getter socket
     getter rpc_manager
+    property debug_loses
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
+      @debug_loses = false
       @socket = UDPSocket.new
       @socket.read_timeout = Time::Span.new(0, 0, 1)
       @socket.connect @address
@@ -23,7 +25,6 @@ module MySync
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
     end
 
-    # TODO - send packages asynchronously?
     private def package_received(package : Bytes)
       # first it decrypts and check
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
@@ -92,6 +93,7 @@ module MySync
       Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       @tosend_header.value = RIGHT_SIGN
+      return if @debug_loses
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno

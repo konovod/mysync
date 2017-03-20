@@ -43,32 +43,58 @@ def spec_rpc(cli, srv_inst, udp_cli, udp_srv)
 
   SpecLogger.dump_events
 
-  pending "direct sending of messages" do # temporary
+  pending "direct sending of messages" do # need mocks?
     msg = Bytes.new(9) { |i| ('a'.ord + i).to_u8 }
     cli.cmd_buffer.add(msg)
-    # udp_cli.send_data
-    # sleep 0.1
-    # p SpecLogger.dump_events
+    udp_cli.send_data
+    sleep 0.1
+    p SpecLogger.dump_events
   end
 
   # greeter.ping(Time.now)
-  greeter.no_answer_without_response "test"
-  udp_cli.send_data
-  sleep 0.1
-  p SpecLogger.dump_events
-
-  spawn do
-    pp greeter.greet("Alice")
-    start = Time.now
-    pong = greeter.ping Time.now
-    finish = Time.now
-    puts "      Ping time: #{pong - start}"
-    puts "Round-trip time: #{finish - start}"
-  end
-
-  5.times do
+  it "rpc without response" do
+    greeter.no_answer_without_response "test"
     udp_cli.send_data
-    sleep 0.1
+    sleep 0.05
+    SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: no_answer test", "CLIENT: received"]
   end
-  p SpecLogger.dump_events
+
+  pending "rpc without response with loses" do
+    greeter.no_answer_without_response "test"
+    udp_cli.debug_loses = true
+    10.times do
+      udp_cli.send_data
+      sleep 0.05
+    end
+    greeter.no_answer_without_response "test2"
+    udp_cli.debug_loses = false
+    10.times do
+      udp_cli.send_data
+      sleep 0.05
+    end
+    SpecLogger.dump_events.count("SERVER: no_answer test").should eq 1
+    SpecLogger.dump_events.count("SERVER: no_answer test2").should eq 1
+  end
+
+  pending "rpc with response" do
+    spawn do
+      pp greeter.greet("Alice")
+      start = Time.now
+      pong = greeter.ping Time.now
+      finish = Time.now
+      puts "      Ping time: #{pong - start}"
+      puts "Round-trip time: #{finish - start}"
+    end
+
+    udp_cli.debug_loses = true
+    10.times do
+      udp_cli.send_data
+      sleep 0.05
+    end
+    udp_cli.debug_loses = false
+    10.times do
+      udp_cli.send_data
+      sleep 0.05
+    end
+  end
 end
