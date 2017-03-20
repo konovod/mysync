@@ -9,8 +9,10 @@ module MySync
   class UDPGameServer
     @header : UInt32*
     getter rpc_manager
+    getter disconnect_delay
 
     def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
+      @disconnect_delay = Time::Span.new(0, 0, 1)
       @connections = Hash(AddressHash, GameConnection).new
       @banned = Set(Address).new
       @socket = UDPSocket.new(Socket::Family::INET)
@@ -22,6 +24,10 @@ module MySync
       spawn { timed_fiber }
     end
 
+    def gen_key(client_public : Crypto::PublicKey) : Crypto::SymmetricKey
+      Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: client_public)
+    end
+
     def n_clients
       @connections.size
     end
@@ -31,7 +37,7 @@ module MySync
       conn1 = @connections[MySync.addr_hash(ip)]?
       return conn1 if conn1
       p "adding connection #{ip}"
-      conn2 = GameConnection.new(ip, @socket, @endpoint_factory, @secret_key, @rpc_manager)
+      conn2 = GameConnection.new(ip, @socket, @endpoint_factory, self)
       @connections[MySync.addr_hash(ip)] = conn2
       spawn { conn2.execute }
       return conn2

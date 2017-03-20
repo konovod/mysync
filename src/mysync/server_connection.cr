@@ -16,11 +16,10 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : AbstractEndPoint?
-    getter rpc_manager
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory,
-                   @secret_key : Crypto::SecretKey, @rpc_manager : Cannon::Rpc::Manager)
+                   @server : UDPGameServer)
       @last_message = Time.now
       @received = Package.new(MAX_RAW_SIZE) # TODO - remove small tail?
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -32,8 +31,8 @@ module MySync
     end
 
     def should_die(at_time : Time) : Bool
-      return true if at_time - @last_message > DISCONNECT_DELAY # timeout
-      return false unless a = @endpoint                         # not authentificated
+      return true if at_time - @last_message > @server.disconnect_delay # timeout
+      return false unless a = @endpoint                                 # not authentificated
       a.requested_disconnect
     end
 
@@ -57,7 +56,7 @@ module MySync
         return if @received.size <= Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
         @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
         akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
-        @symmetric_key = Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: akey)
+        @symmetric_key = @server.gen_key(akey)
         return unless Crypto.decrypt(
                         key: @symmetric_key,
                         input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
@@ -69,7 +68,7 @@ module MySync
         # now send response
         tosend_decrypted = tuple[:response]
         # and init rpc connection
-        tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @rpc_manager
+        tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @server.rpc_manager
       end
       # then encrypt
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4
