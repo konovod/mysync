@@ -77,8 +77,10 @@ module MySync
       data.commands.each { |cmd| @cmd_buffer.acked cmd }
     end
 
-    def command_received(data : Bytes)
-      p "received! #{data}"
+    def command_received # (data : Bytes)
+      if it = @rpc_connection
+        it.handle_command @io_received
+      end
     end
 
     def process_receive(data : Bytes) : Nil
@@ -101,11 +103,11 @@ module MySync
 
       while @io_received.pos < @io_received.size
         id = @io_received.read_bytes(UInt32)
-        size = @io_received.read_bytes(CmdSize)
-        raise "wrong command size: #{size} > #{@io_received.size - @io_received.pos}" if size > @io_received.size - @io_received.pos
-        data = Bytes.new(size)
-        @io_received.read(data)
-        command_received(data)
+        # size = @io_received.read_bytes(CmdSize)
+        # raise "wrong command size: #{size} > #{@io_received.size - @io_received.pos}" if size > @io_received.size - @io_received.pos
+        # data = Bytes.new(size)
+        # @io_received.read(data)
+        command_received # (@io_received)
       end
       # pp @io_received.pos, @io_received.size
     end
@@ -124,10 +126,10 @@ module MySync
       # TODO - check if too big and split
       @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - @io_tosend.pos, Time.now) do |cmd|
         @io_tosend.write_bytes(cmd.id)
-        @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
+        # @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
         @io_tosend.write(cmd.data.to_slice)
         cur_commands << cmd
-        p "adding #{cmd.data}"
+        # p "adding #{cmd.data}"
         true
       end
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)

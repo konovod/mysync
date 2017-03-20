@@ -1,9 +1,11 @@
 require "./commands"
+require "./rpc"
 
 module MySync
   abstract class AbstractEndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer : CommandBuffer
+    property rpc_connection : CannonInterface?
 
     def initialize
       @requested_disconnect = false

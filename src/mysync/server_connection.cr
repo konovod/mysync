@@ -16,7 +16,6 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : AbstractEndPoint?
-    getter rpc_connection : CannonInterface?
     getter rpc_manager
 
     def initialize(@address : Address, @socket : UDPSocket,
@@ -70,7 +69,7 @@ module MySync
         # now send response
         tosend_decrypted = tuple[:response]
         # and init rpc connection
-        @rpc_connection = CannonInterface.new tuple[:endpoint], @rpc_manager
+        tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @rpc_manager
       end
       # then encrypt
       @tosend.size = tosend_decrypted.size + Crypto::OVERHEAD_SYMMETRIC + 4

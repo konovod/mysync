@@ -8,7 +8,6 @@ module MySync
   class UDPGameClient
     getter socket
     getter rpc_manager
-    getter rpc_connection
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
       @socket = UDPSocket.new
@@ -21,7 +20,7 @@ module MySync
       @symmetric_key = Crypto::SymmetricKey.new
       @received_header = @raw_received.to_unsafe.as(UInt32*)
       @rpc_manager = Cannon::Rpc::Manager.new
-      @rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
+      @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
     end
 
     # TODO - send packages asynchronously?
