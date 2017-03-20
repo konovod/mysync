@@ -46,9 +46,9 @@ def spec_rpc(cli, srv_inst, udp_cli, udp_srv)
   it "direct sending of messages" do # temporary
     msg = Bytes.new(9) { |i| ('a'.ord + i).to_u8 }
     cli.cmd_buffer.add(msg)
-    udp_cli.send_data
-    sleep 0.1
-    p SpecLogger.dump_events
+    # udp_cli.send_data
+    # sleep 0.1
+    # p SpecLogger.dump_events
   end
 
   # greeter.ping(Time.now)
