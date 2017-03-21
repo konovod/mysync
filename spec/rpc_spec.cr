@@ -48,7 +48,6 @@ pending "direct sending of messages" do # need mocks?
   p SpecLogger.dump_events
 end
 
-# greeter.ping(Time.now)
 it "rpc without response" do
   SpecLogger.dump_events
   greeter.no_answer_without_response "test"

@@ -144,7 +144,7 @@ class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
       if @benchmark == 0
         @benchmark_complete.send(nil)
       else
-        @benchmark_udp.not_nil!.send_data
+        @benchmark_udp.not_nil!.send_manually
       end
     elsif w = @wait_answer
       w.send(nil)
@@ -160,8 +160,12 @@ end
 
 def one_exchange(cli, udp_cli)
   ans = Channel(Nil).new
+  spawn do
+    sleep 0.1.seconds
+    ans.send nil
+  end
   cli.wait_answer = ans
-  udp_cli.send_data
+  udp_cli.send_manually
   ans.receive
   cli.wait_answer = nil
 end

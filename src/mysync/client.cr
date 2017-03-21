@@ -5,10 +5,18 @@ require "./network"
 require "./package"
 
 module MySync
+  private enum LoginState
+    NoData
+    NotLoggedIn
+    LoggedIn
+  end
+
   class UDPGameClient
     getter socket
     getter rpc_manager
     property debug_loses
+    property autosend_delay : Time::Span?
+    @login_key : Crypto::PublicKey?
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
       @debug_loses = false
@@ -23,6 +31,15 @@ module MySync
       @received_header = @raw_received.to_unsafe.as(UInt32*)
       @rpc_manager = Cannon::Rpc::Manager.new
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
+      @login_data = Bytes.new(0)
+      @login_key = nil
+      @login_complete = Channel(Bytes).new
+      @logged = LoginState::NoData
+      @autosend_delay = nil
+      @should_send = Channel(Nil).new
+      spawn { reading_fiber }
+      spawn { sending_fiber }
+      spawn { auto_sending_fiber }
     end
 
     private def package_received(package : Bytes)
@@ -45,23 +62,71 @@ module MySync
         size, ip = try_receive
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
-        next if @received_header.value != RIGHT_SIGN
-        package_received @raw_received[4, size - 4]
+        if @logged
+          next if @received_header.value != RIGHT_SIGN
+          package_received @raw_received[4, size - 4]
+        else
+          next if @received_header.value != RIGHT_LOGIN_SIGN
+          login_received @raw_received[4, size - 4]
+        end
       end
     end
 
-    def login(public_key : Crypto::PublicKey, authdata : Bytes) : Bytes?
+    private def sending_fiber
+      loop do
+        @should_send.receive
+        case @logged
+        when LoginState::NotLoggedIn
+          send_login
+        when LoginState::LoggedIn
+          send_data
+        end
+      end
+    end
+
+    private def auto_sending_fiber
+      spawn do
+        if delay = @autosend_delay
+          sleep delay
+          @should_send.send nil
+        else
+          sleep 0.1
+        end
+      end
+    end
+
+    def stop_auto_send
+      return unless @allow_auto_sending
+      @allow_auto_sending = false
+      @autosend_stopped.receive
+    end
+
+    def send_manually
+      @should_send.send nil
+    end
+
+    def login(public_key : Crypto::PublicKey, authdata : Bytes) : Nil
+      @login_key = public_key
+      @login_data = authdata
+      @logged = LoginState::NotLoggedIn
+    end
+
+    def wait_login : Bytes
+      @login_complete.receive
+    end
+
+    private def send_login
       secret_key = Crypto::SecretKey.new
-      @symmetric_key = Crypto::SymmetricKey.new(our_secret: secret_key, their_public: public_key)
+      @symmetric_key = Crypto::SymmetricKey.new(our_secret: secret_key, their_public: @login_key.not_nil!)
       our_public = Crypto::PublicKey.new(secret: secret_key)
       # we encrypt auth data and add our public key as additional data
-      @tosend.size = 4 + Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC + authdata.size
+      @tosend.size = 4 + Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC + @login_data.size
       @tosend.slice[4, Crypto::PublicKey.size].copy_from our_public.to_slice
       Crypto.encrypt(
         key: @symmetric_key,
-        input: authdata,
-        additional: our_public.to_slice,
-        output: @tosend.slice[4 + Crypto::PublicKey.size, authdata.size + Crypto::OVERHEAD_SYMMETRIC])
+        input: @login_data,
+        #        additional: our_public.to_slice,
+        output: @tosend.slice[4 + Crypto::PublicKey.size, @login_data.size + Crypto::OVERHEAD_SYMMETRIC])
       # send it to server
       @tosend_header.value = RIGHT_SIGN
       begin
@@ -69,24 +134,21 @@ module MySync
       rescue ex : Errno
         return nil
       end
-      # wait for response
-      size, ip = @socket.receive(@raw_received)
-      return nil if size < MIN_RAW_SIZE
-      return nil if size > MAX_RAW_SIZE
-      return nil if @received_header.value != RIGHT_SIGN
-      package = @raw_received[4, size - 4]
+    end
+
+    def login_received(package) : Nil
       # decrypt it with symmetric_key
-      return nil if package.size < Crypto::OVERHEAD_SYMMETRIC
+      return if package.size < Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
-      return nil unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
       # all is fine, copy data to output and start listening
       data = Bytes.new(@received_decrypted.size)
       data.copy_from @received_decrypted.slice
-      spawn { reading_fiber }
-      return data
+      @logged = LoginState::LoggedIn
+      @login_complete.send data
     end
 
-    def send_data
+    private def send_data
       data = @endpoint.process_sending
       # then encrypt
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4

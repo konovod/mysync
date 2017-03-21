@@ -57,12 +57,16 @@ module MySync
         size, ip = @socket.receive(@single_buffer)
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
-        next if @header.value != RIGHT_SIGN
+        next if @header.value != RIGHT_SIGN && @header.value != RIGHT_LOGIN_SIGN
         next if @banned.includes? ip
         conn = get_connection(ip)
         conn.received.size = size - 4
         conn.received.slice.copy_from @single_buffer[4, size - 4]
-        conn.control.send(ConnectionCommand::PacketReceived)
+        if @header.value != RIGHT_SIGN
+          conn.control.send(ConnectionCommand::PacketReceived)
+        else
+          conn.control.send(ConnectionCommand::LoginReceived)
+        end
       end
     end
 

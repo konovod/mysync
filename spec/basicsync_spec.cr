@@ -14,6 +14,12 @@ it "basic data exchange" do
   SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received"]
 end
 
+it "can login again" do
+  answer = udp_cli.login(public_key, "it_s_another".to_slice)
+  String.new(answer.not_nil!).should eq "you_can_pass"
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another"]
+end
+
 it "passed data are applied" do
   cli.local_sync.data = "hello"
   cli.local_sync.num = 5
@@ -48,7 +54,7 @@ it "gather stats for packets" do
   cur = Time.now
   cli.benchmark = 1000
   cli.benchmark_udp = udp_cli
-  udp_cli.send_data
+  udp_cli.send_manually
   cli.benchmark_complete.receive
   pp (Time.now - cur).to_f # *1000 / 1000
   pp cli.stat_losses
