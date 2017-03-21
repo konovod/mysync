@@ -62,7 +62,7 @@ module MySync
         conn = get_connection(ip)
         conn.received.size = size - 4
         conn.received.slice.copy_from @single_buffer[4, size - 4]
-        if @header.value != RIGHT_SIGN
+        if @header.value == RIGHT_SIGN
           conn.control.send(ConnectionCommand::PacketReceived)
         else
           conn.control.send(ConnectionCommand::LoginReceived)

@@ -4,6 +4,7 @@ require "./endpoint"
 
 # TODO: alias PoorManEvent = Channel(Nil)
 # TODO: utilize inplace encrypt\decrypt
+# TODO: report private enum bug\feature
 
 module MySync
   alias Address = Socket::IPAddress

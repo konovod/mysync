@@ -5,7 +5,7 @@ require "./network"
 require "./package"
 
 module MySync
-  private enum LoginState
+  enum LoginState
     NoData
     NotLoggedIn
     LoggedIn
@@ -62,12 +62,14 @@ module MySync
         size, ip = try_receive
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
-        if @logged
-          next if @received_header.value != RIGHT_SIGN
-          package_received @raw_received[4, size - 4]
+        package = @raw_received[4, size - 4]
+        case @logged
+        when LoginState::NotLoggedIn
+          login_received(package) if @received_header.value == RIGHT_LOGIN_SIGN
+        when LoginState::LoggedIn
+          package_received (package) if @received_header.value == RIGHT_SIGN
         else
-          next if @received_header.value != RIGHT_LOGIN_SIGN
-          login_received @raw_received[4, size - 4]
+          # ignore
         end
       end
     end
@@ -85,20 +87,14 @@ module MySync
     end
 
     private def auto_sending_fiber
-      spawn do
+      loop do
         if delay = @autosend_delay
-          sleep delay
           @should_send.send nil
+          sleep delay
         else
           sleep 0.1
         end
       end
-    end
-
-    def stop_auto_send
-      return unless @allow_auto_sending
-      @allow_auto_sending = false
-      @autosend_stopped.receive
     end
 
     def send_manually
@@ -112,6 +108,7 @@ module MySync
     end
 
     def wait_login : Bytes
+      raise "autosend_delay should be set" unless @autosend_delay
       @login_complete.receive
     end
 
@@ -128,7 +125,7 @@ module MySync
         #        additional: our_public.to_slice,
         output: @tosend.slice[4 + Crypto::PublicKey.size, @login_data.size + Crypto::OVERHEAD_SYMMETRIC])
       # send it to server
-      @tosend_header.value = RIGHT_SIGN
+      @tosend_header.value = RIGHT_LOGIN_SIGN
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno

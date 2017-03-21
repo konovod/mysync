@@ -81,15 +81,19 @@ macro solve_bug
 end
 
 class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
+  property verbose : Bool = false
+
   def on_disconnect
     SpecLogger.log_srv "user disconnected: #{@user}"
   end
 
   def on_received_sync
+    SpecLogger.log_srv "received" if @verbose
     @server.state.all_data[@remote_sync.num] = @remote_sync.data if @remote_sync.num >= 0
   end
 
   def before_sending_sync
+    SpecLogger.log_srv "sending" if @verbose
     @local_sync = @server.state
   end
 
@@ -180,7 +184,7 @@ def make_test_pair
 
   cli = TestClientEndpoint.new
   udp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000))
-  # udp_cli.login(public_key, Bytes.new(0))
+  udp_cli.login(public_key, Bytes.new(0))
 
   return {cli, udp_cli, srv, udp_srv, public_key}
 end

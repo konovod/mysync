@@ -3,34 +3,45 @@ require "./spec_helper"
 cli, udp_cli, srv, udp_srv, public_key = make_test_pair
 
 it "test login" do
-  answer = udp_cli.login(public_key, "it_s_me".to_slice)
+  udp_cli.login(public_key, "it_s_me".to_slice)
+  udp_cli.autosend_delay = 0.1.seconds
+  # udp_cli.send_manually
+  answer = udp_cli.wait_login
+  udp_cli.autosend_delay = nil
   String.new(answer.not_nil!).should eq "you_can_pass"
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_me"]
 end
 
+srv_inst = srv.test_endpoint.not_nil!
+
 it "basic data exchange" do
   cli.verbose = true
+  srv_inst.verbose = true
   one_exchange(cli, udp_cli)
-  SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received"]
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received", "SERVER: sending", "CLIENT: received"]
 end
 
 it "can login again" do
-  answer = udp_cli.login(public_key, "it_s_another".to_slice)
+  udp_cli.login(public_key, "it_s_another".to_slice)
+  udp_cli.autosend_delay = 0.1.seconds
+  # udp_cli.send_manually
+  answer = udp_cli.wait_login
+  udp_cli.autosend_delay = nil
   String.new(answer.not_nil!).should eq "you_can_pass"
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another"]
+  SpecLogger.dump_events.should eq ["SERVER: logged in: it_s_another"]
 end
+srv_inst = srv.test_endpoint.not_nil!
 
 it "passed data are applied" do
   cli.local_sync.data = "hello"
   cli.local_sync.num = 5
 
   one_exchange(cli, udp_cli)
-
   srv.state.all_data[5].should eq "hello"
+  one_exchange(cli, udp_cli)
   cli.remote_sync.all_data[5].should eq "hello"
 end
 
-srv_inst = srv.test_endpoint.not_nil!
 # TODO - specs for ack_mask
 it "update seq_iq" do
   cli.local_seq = 5u16
@@ -66,7 +77,7 @@ it "disconnects old clients" do
   SpecLogger.dump_events.size.should eq 0
   udp_srv.n_clients.should eq 1
   udp_srv.disconnect_delay = 0.01.seconds
-  sleep(0.21.seconds)
+  sleep(0.5.seconds)
   udp_srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2", "SERVER: connection complete"]
 end
