@@ -73,7 +73,7 @@ it "don't repeat old procedures" do
   SpecLogger.dump_events.should eq ([] of String)
 end
 
-pending "rpc without response with loses" do
+it "rpc without response with loses" do
   greeter.no_answer_without_response "test1"
   udp_cli.debug_loses = true
   10.times do
@@ -84,12 +84,13 @@ pending "rpc without response with loses" do
   10.times do
     one_exchange(cli, udp_cli)
   end
-  p SpecLogger.dump_events
-  # SpecLogger.dump_events.count("SERVER: no_answer test").should eq 1
-  # SpecLogger.dump_events.count("SERVER: no_answer test2").should eq 1
+  SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]
 end
 
-pending "rpc with response" do
+it "rpc with response" do
+  done = Channel(Nil).new
+  udp_cli.debug_loses = true
+  udp_cli.autosend_delay = 0.05.seconds
   spawn do
     pp greeter.greet("Alice")
     start = Time.now
@@ -97,14 +98,9 @@ pending "rpc with response" do
     finish = Time.now
     puts "      Ping time: #{pong - start}"
     puts "Round-trip time: #{finish - start}"
+    done.send nil
   end
-
-  udp_cli.debug_loses = true
-  10.times do
-    one_exchange(cli, udp_cli)
-  end
+  sleep 0.2
   udp_cli.debug_loses = false
-  10.times do
-    one_exchange(cli, udp_cli)
-  end
+  done.receive
 end
