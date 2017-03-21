@@ -26,6 +26,7 @@ module MySync
   # for remote we need only the fact that it passed
   ackrecord RemoteAckData
   ackrecord LocalAckData, sent : Time, commands : Array(Command)
+  ackrecord RemoteMessage
 
   abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
     property local_sync : LocalSync
@@ -39,6 +40,7 @@ module MySync
       @remote_sync = RemoteSync.new
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
+      @remote_message_acks = CircularAckBuffer(RemoteMessage).new
     end
 
     def local_seq : Sequence
@@ -77,7 +79,7 @@ module MySync
       data.commands.each { |cmd| @cmd_buffer.acked cmd }
     end
 
-    def command_received # (data : Bytes)
+    def command_received
       if it = @rpc_connection
         it.handle_command @io_received
       end
@@ -99,17 +101,17 @@ module MySync
       @remote_sync = Cannon.decode @io_received, RemoteSync
       on_received_sync if most_recent # TODO add size field to skip decoding OoO packets?
 
-      # TODO - process async
-
+      # now process async
       while @io_received.pos < @io_received.size
-        id = @io_received.read_bytes(UInt32)
-        # size = @io_received.read_bytes(CmdSize)
-        # raise "wrong command size: #{size} > #{@io_received.size - @io_received.pos}" if size > @io_received.size - @io_received.pos
-        # data = Bytes.new(size)
-        # @io_received.read(data)
-        command_received # (@io_received)
+        id = @io_received.read_bytes(Sequence)
+        asize = @io_received.read_bytes(CmdSize)
+        if @remote_message_acks.passed(id)
+          @io_received.pos += asize
+        else
+          @remote_message_acks.apply_single id
+          command_received
+        end
       end
-      # pp @io_received.pos, @io_received.size
     end
 
     def process_sending : Bytes
@@ -126,10 +128,9 @@ module MySync
       # TODO - check if too big and split
       @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - @io_tosend.pos, Time.now) do |cmd|
         @io_tosend.write_bytes(cmd.id)
-        # @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
+        @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
         @io_tosend.write(cmd.data.to_slice)
         cur_commands << cmd
-        # p "adding #{cmd.data}"
         true
       end
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)

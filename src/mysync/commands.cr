@@ -1,15 +1,18 @@
+require "./endpoint_types"
+
 module MySync
   # TODO - later optimize to single buffer
   # record Command, offset : Int32, size : Int32
   RESEND_TIME = (0.2).seconds
   alias CmdSize = UInt8
+  alias CmdID = Sequence
 
   class Command
     getter data
     property sent : Time
     getter id
 
-    def initialize(@id : UInt32, @data : Bytes)
+    def initialize(@id : CmdID, @data : Bytes)
       @sent = Time.now - RESEND_TIME*2
     end
   end
@@ -17,7 +20,7 @@ module MySync
   class CommandBuffer
     def initialize
       @commands = Array(Command).new
-      @last_sent_id = 0u32
+      @last_sent_id = CmdID.new(0)
     end
 
     def add(data : Bytes) : Nil

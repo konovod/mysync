@@ -34,6 +34,10 @@ end
 
 cli, udp_cli, srv, udp_srv, public_key = make_test_pair
 udp_cli.login(public_key, Bytes.new(1))
+udp_cli.autosend_delay = 0.1.seconds
+# udp_cli.send_manually
+answer = udp_cli.wait_login
+udp_cli.autosend_delay = nil
 srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!
@@ -48,15 +52,29 @@ pending "direct sending of messages" do # need mocks?
   p SpecLogger.dump_events
 end
 
+cli.verbose = false
 it "rpc without response" do
   SpecLogger.dump_events
   greeter.no_answer_without_response "test"
   one_exchange(cli, udp_cli)
-  SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: no_answer test", "CLIENT: received"]
+  SpecLogger.dump_events.should eq ["SERVER: no_answer test"]
+end
+
+it "don't repeat old procedures" do
+  SpecLogger.dump_events
+  udp_cli.debug_loses = true
+  10.times do
+    one_exchange(cli, udp_cli)
+  end
+  udp_cli.debug_loses = false
+  10.times do
+    one_exchange(cli, udp_cli)
+  end
+  SpecLogger.dump_events.should eq ([] of String)
 end
 
 pending "rpc without response with loses" do
-  greeter.no_answer_without_response "test"
+  greeter.no_answer_without_response "test1"
   udp_cli.debug_loses = true
   10.times do
     one_exchange(cli, udp_cli)

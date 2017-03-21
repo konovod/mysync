@@ -126,7 +126,7 @@ class TestServer
   def on_disconnecting(ip : Socket::IPAddress, ex : Exception?)
     if ex
       p "connection #{ip} raised #{ex}"
-      SpecLogger.log_srv "connection raised #{ex}"
+      SpecLogger.log_srv "connection raised"
     else
       p "connection #{ip} complete"
       SpecLogger.log_srv "connection complete"

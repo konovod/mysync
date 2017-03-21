@@ -90,4 +90,15 @@ describe "CircularAckBuffer" do
     buf[65534u16]?.should eq ack4
     buf.passed_mask.should eq (1 << 8)
   end
+
+  it "apply single id" do
+    buf.apply_single 999u16
+    buf.passed(998u16).should be_false
+    buf.passed(999u16).should be_true
+    buf.passed(1000u16).should be_false
+    buf.apply_single 1000u16
+    buf.passed(998u16).should be_false
+    buf.passed(999u16).should be_true
+    buf.passed(1000u16).should be_true
+  end
 end

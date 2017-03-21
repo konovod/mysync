@@ -33,6 +33,13 @@ module MySync
     #   seq = @cur_seq + @cur_pos - index
     # end
 
+    def apply_single(single : Sequence)
+      if Int16.new(single - @cur_seq) >= 0
+        self.cur_seq=(single)
+      end
+      set_passed(single, true) unless @cur_seq - single > N_ACKS
+    end
+
     def apply_mask(start : Sequence, mask : AckMask)
       return if start <= @cur_seq - N_ACKS
       N_ACKS.times do |ir|
@@ -53,7 +60,7 @@ module MySync
     end
 
     def []=(seq : Sequence, value : T) : Nil
-      raise "incorrect seq number #{seq} at current #{cur_seq}" if cur_seq - seq > N_ACKS
+      raise "incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = value
     end
 
@@ -63,7 +70,7 @@ module MySync
     end
 
     def set_passed(seq : Sequence, value : Bool)
-      raise "incorrect seq number #{seq} at current #{cur_seq}" if cur_seq - seq > N_ACKS
+      raise "incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = @data[seq_to_index(seq)].set_passed(value)
     end
 
