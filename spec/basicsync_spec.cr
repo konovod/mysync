@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair
+cli, udp_cli, srv, udp_srv, public_key = make_test_pair(0)
 
 it "test login" do
   udp_cli.login(public_key, "it_s_me".to_slice)

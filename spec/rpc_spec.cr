@@ -32,7 +32,7 @@ class GreetClient
   include Cannon::Rpc::RemoteService(GreetDescription)
 end
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair
+cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
 udp_cli.login(public_key, Bytes.new(1))
 udp_cli.autosend_delay = 0.1.seconds
 # udp_cli.send_manually
@@ -63,25 +63,32 @@ end
 it "don't repeat old procedures" do
   SpecLogger.dump_events
   udp_cli.debug_loses = true
-  10.times do
-    one_exchange(cli, udp_cli)
+  20.times do
+    # one_exchange(cli, udp_cli)
+    udp_cli.send_manually
   end
   udp_cli.debug_loses = false
   10.times do
+    udp_cli.send_manually
+    # one_exchange(cli, udp_cli)
+  end
+  sleep 0.2
+  10.times do
     one_exchange(cli, udp_cli)
   end
-  SpecLogger.dump_events.should eq ([] of String)
+  SpecLogger.dump_events.count("SERVER: no_answer test").should eq 0
 end
 
 it "rpc without response with loses" do
   greeter.no_answer_without_response "test1"
   udp_cli.debug_loses = true
-  10.times do
+  5.times do
     one_exchange(cli, udp_cli)
   end
+  sleep 0.2
   greeter.no_answer_without_response "test2"
   udp_cli.debug_loses = false
-  10.times do
+  20.times do
     one_exchange(cli, udp_cli)
   end
   SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]

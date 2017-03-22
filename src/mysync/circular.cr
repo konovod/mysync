@@ -34,7 +34,7 @@ module MySync
     # end
 
     def apply_single(single : Sequence)
-      if Int16.new(single - @cur_seq) >= 0
+      if SequenceSigned.new(single - @cur_seq) >= 0
         self.cur_seq=(single)
       end
       set_passed(single, true) unless @cur_seq - single > N_ACKS
