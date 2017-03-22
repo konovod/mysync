@@ -16,6 +16,7 @@ module MySync
     getter rpc_manager
     property debug_loses
     property autosend_delay : Time::Span?
+    property disconnect_timeout : Time::Span
     @login_key : Crypto::PublicKey?
 
     def initialize(@endpoint : AbstractEndPoint, @address : Address)
@@ -37,6 +38,8 @@ module MySync
       @logged = LoginState::NoData
       @autosend_delay = nil
       @should_send = Channel(Nil).new
+      @disconnect_timeout = 1.seconds
+      @last_response = Time.now
       spawn { reading_fiber }
       spawn { sending_fiber }
       spawn { auto_sending_fiber }
@@ -47,6 +50,7 @@ module MySync
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
+      @last_response = Time.now
       # then pass to endpoint
       @endpoint.process_receive(@received_decrypted.slice)
     end
@@ -77,6 +81,7 @@ module MySync
     private def sending_fiber
       loop do
         @should_send.receive
+        @logged = LoginState::NotLoggedIn if Time.now - @last_response > @disconnect_timeout
         case @logged
         when LoginState::NotLoggedIn
           send_login
@@ -141,6 +146,7 @@ module MySync
       # all is fine, copy data to output and start listening
       data = Bytes.new(@received_decrypted.size)
       data.copy_from @received_decrypted.slice
+      @last_response = Time.now
       @logged = LoginState::LoggedIn
       @login_complete.send data
     end

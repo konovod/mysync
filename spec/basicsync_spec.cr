@@ -81,3 +81,13 @@ it "disconnects old clients" do
   udp_srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2", "SERVER: connection complete"]
 end
+
+udp_cli.disconnect_timeout = 0.2.seconds
+
+it "client relogins on timeout" do
+  udp_cli.autosend_delay = 0.1.seconds
+  # udp_cli.send_manually
+  answer = udp_cli.wait_login
+  udp_cli.autosend_delay = nil
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another"]
+end
