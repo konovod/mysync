@@ -80,7 +80,9 @@ macro solve_bug
 
 end
 
-class TestUserContext < MySync::EndPoint(TestServerOutput, TestClientInput)
+class TestUserContext < MySync::EndPoint
+  set_local_sync(TestServerOutput)
+  set_remote_sync(TestClientInput)
   property verbose : Bool = false
 
   def on_disconnect
@@ -134,7 +136,10 @@ class TestServer
   end
 end
 
-class TestClientEndpoint < MySync::EndPoint(TestClientInput, TestServerOutput)
+class TestClientEndpoint < MySync::EndPoint
+  set_local_sync TestClientInput
+  set_remote_sync TestServerOutput
+
   property benchmark : Int32 = 0
   property benchmark_udp : MySync::UDPGameClient?
   getter benchmark_complete = Channel(Nil).new

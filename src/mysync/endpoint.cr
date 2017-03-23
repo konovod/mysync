@@ -28,16 +28,11 @@ module MySync
   ackrecord LocalAckData, sent : Time, commands : Array(Command)
   ackrecord RemoteMessage
 
-  abstract class EndPoint(LocalSync, RemoteSync) < AbstractEndPoint
-    property local_sync : LocalSync
-    property remote_sync : RemoteSync
-
+  abstract class EndPoint < AbstractEndPoint
     def initialize
       super
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
-      @local_sync = LocalSync.new
-      @remote_sync = RemoteSync.new
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
       @remote_message_acks = CircularAckBuffer(RemoteMessage).new
@@ -98,7 +93,7 @@ module MySync
       # process acks mask of our packets
       @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
-      @remote_sync = Cannon.decode @io_received, RemoteSync
+      decode_remote_sync
       on_received_sync if most_recent # TODO add size field to skip decoding OoO packets?
 
       # now process async
@@ -123,7 +118,7 @@ module MySync
       header = PacketHeader.new(self.local_seq, self.remote_seq, @remote_acks.passed_mask)
       Cannon.encode @io_tosend, header
       before_sending_sync
-      Cannon.encode @io_tosend, @local_sync
+      send_local_sync
       # process async
       # TODO - check if too big and split
       @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - @io_tosend.pos, Time.now) do |cmd|
@@ -135,5 +130,19 @@ module MySync
       end
       return Bytes.new(@io_tosend.buffer, @io_tosend.pos)
     end
+  end
+end
+
+macro set_local_sync(typ)
+  property local_sync : {{typ}} = {{typ}}.new
+  def send_local_sync
+    Cannon.encode @io_tosend, @local_sync
+  end
+end
+
+macro set_remote_sync(typ)
+  property remote_sync : {{typ}} = {{typ}}.new
+  def decode_remote_sync
+    @remote_sync = Cannon.decode @io_received, typeof(@remote_sync)
   end
 end
