@@ -49,37 +49,6 @@ struct TestServerOutput
   end
 end
 
-# compiler bug?
-# TODO - identify minimal example
-######################
-macro solve_bug
-
-  def process_receive(data)
-    super
-  end
-
-  def process_sending
-    super
-  end
-
-  def local_seq=(value)
-    super
-  end
-
-  def remote_seq=(value)
-    super
-  end
-
-  def local_seq
-    super
-  end
-
-  def remote_seq
-    super
-  end
-
-end
-
 class TestUserContext < MySync::EndPoint
   set_local_sync(TestServerOutput)
   set_remote_sync(TestClientInput)
@@ -98,8 +67,6 @@ class TestUserContext < MySync::EndPoint
     SpecLogger.log_srv "sending" if @verbose
     @local_sync = @server.state
   end
-
-  solve_bug
 
   def initialize(@server : TestServer, @user : Int32)
     super()
@@ -163,8 +130,6 @@ class TestClientEndpoint < MySync::EndPoint
   def before_sending_sync
     SpecLogger.log_cli "sending" if @verbose
   end
-
-  solve_bug
 end
 
 def one_exchange(cli, udp_cli)
