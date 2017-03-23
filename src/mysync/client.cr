@@ -1,4 +1,4 @@
-require "./endpoint_interface"
+require "./endpoint"
 require "monocypher"
 require "socket"
 require "./network"
@@ -19,7 +19,7 @@ module MySync
     property disconnect_timeout : Time::Span
     @login_key : Crypto::PublicKey?
 
-    def initialize(@endpoint : AbstractEndPoint, @address : Address)
+    def initialize(@endpoint : EndPoint, @address : Address)
       @debug_loses = false
       @socket = UDPSocket.new
       @socket.read_timeout = Time::Span.new(0, 0, 1)

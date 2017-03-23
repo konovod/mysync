@@ -9,7 +9,7 @@ module MySync
   class CannonInterface < Cannon::Rpc::Connection
     getter manager
 
-    def initialize(@endpoint : AbstractEndPoint, amanager : Cannon::Rpc::Manager)
+    def initialize(@endpoint : EndPoint, amanager : Cannon::Rpc::Manager)
       super(amanager)
       @handles = Hash(UInt8, ReceiveChannel).new
     end

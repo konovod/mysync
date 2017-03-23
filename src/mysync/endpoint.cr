@@ -1,11 +1,16 @@
 require "cannon"
 require "./endpoint_types"
-require "./endpoint_interface"
 require "./circular"
 require "./stats"
 require "./commands"
 
 module MySync
+  module EndPointFactory
+    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint, response: Bytes}?
+    abstract def on_connecting(ip : Address)
+    abstract def on_disconnecting(ip : Address, ex : Exception?)
+  end
+
   MAX_PACKAGE_SIZE = 1024
 
   @[Packed]
@@ -28,14 +33,26 @@ module MySync
   ackrecord LocalAckData, sent : Time, commands : Array(Command)
   ackrecord RemoteMessage
 
-  abstract class EndPoint < AbstractEndPoint
+  abstract class EndPoint
+    getter requested_disconnect : Bool
+    getter cmd_buffer : CommandBuffer
+    property rpc_connection : CannonInterface?
+
     def initialize
       super
+      @requested_disconnect = false
+      @cmd_buffer = CommandBuffer.new
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
       @remote_message_acks = CircularAckBuffer(RemoteMessage).new
+    end
+
+    abstract def on_received_sync
+    abstract def before_sending_sync
+
+    def on_disconnect
     end
 
     def local_seq : Sequence
@@ -54,9 +71,6 @@ module MySync
     def remote_seq=(value : Sequence)
       @remote_acks.cur_seq = value
     end
-
-    abstract def on_received_sync
-    abstract def before_sending_sync
 
     @ping_time = FilteredAVG.new
     @losses = CountingAVG.new

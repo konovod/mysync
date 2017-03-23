@@ -16,7 +16,7 @@ module MySync
     getter received
     getter control
     getter last_message : Time
-    getter endpoint : AbstractEndPoint?
+    getter endpoint : EndPoint?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @endpoint_factory : EndPointFactory,
