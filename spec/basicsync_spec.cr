@@ -89,5 +89,43 @@ it "client relogins on timeout" do
   # udp_cli.send_manually
   answer = udp_cli.wait_login
   udp_cli.autosend_delay = nil
+  one_exchange(cli, udp_cli)
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another"]
+end
+
+pending "works with restarted client" do
+  cli.verbose = true
+  srv_inst.verbose = true
+  # acli = cli
+  acli = TestClientEndpoint.new
+  udp_cli.endpoint = acli
+  pp acli.local_seq, acli.remote_seq
+  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli)
+  pp acli.local_seq, acli.remote_seq
+  p SpecLogger.dump_events
+end
+
+N = 1
+pending "process multiple connections" do
+  udp_srv.disconnect_delay = 1.seconds
+  clients = [] of TestClientEndpoint
+  N.times do
+    acli = TestClientEndpoint.new
+    audp_cli = MySync::UDPGameClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
+    audp_cli.login(public_key, Bytes.new(0))
+    # audp_cli.autosend_delay = 0.05.seconds
+    acli.benchmark = 1000
+    acli.benchmark_udp = udp_cli
+    clients << acli
+  end
+  clients.each do |acli|
+    acli.benchmark_udp.not_nil!.send_manually
+  end
+  clients.each do |acli|
+    acli.benchmark_complete.receive
+  end
+  t = clients.sum &.stat_pingtime
+  pp t*1000.0 / N
 end
