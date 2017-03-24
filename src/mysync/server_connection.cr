@@ -56,7 +56,7 @@ module MySync
 
     private def process_login_packet
       # here is encrypted packet with client public key as additional data
-      return if @received.size <= Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
+      return if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
       akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
       @symmetric_key = @server.gen_key(akey)

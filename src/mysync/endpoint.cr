@@ -104,7 +104,10 @@ module MySync
     def process_receive(data : Bytes) : Nil
       @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
-      return if header.sequence == self.remote_seq || @remote_acks.passed(header.sequence)
+      if header.sequence == self.remote_seq || @remote_acks.passed(header.sequence)
+        p "discarding duplicate #{header.sequence} at #{self.remote_seq}"
+        return
+      end
       # process acks of remote packets
       delta = SequenceSigned.new(header.sequence - self.remote_seq)
       if delta < -N_ACKS + 1 # too_old
