@@ -13,6 +13,16 @@ module MySync
       @cur_seq = Sequence.new(0)
     end
 
+    def reset
+      @cur_pos = Sequence.new(0)
+      @cur_seq = Sequence.new(0)
+      t = uninitialized T
+      t = t.set_passed false
+      N_ACKS.times do |i|
+        @data[i] = t
+      end
+    end
+
     def cur_seq=(value : Sequence)
       delta = value - @cur_seq
       return if delta == 0
@@ -41,7 +51,7 @@ module MySync
     end
 
     def apply_mask(start : Sequence, mask : AckMask)
-      return if start <= @cur_seq - N_ACKS
+      return if @cur_seq - start > N_ACKS
       N_ACKS.times do |ir|
         i = (N_ACKS - 1) - ir
         next if (i > 0) && (mask & 1 << (i - 1) == 0)
@@ -60,7 +70,7 @@ module MySync
     end
 
     def []=(seq : Sequence, value : T) : Nil
-      raise "incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
+      raise "assigning incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = value
     end
 
@@ -70,7 +80,7 @@ module MySync
     end
 
     def set_passed(seq : Sequence, value : Bool)
-      raise "incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
+      raise "passing incorrect seq number #{seq} at current #{cur_seq}" if @cur_seq - seq > N_ACKS
       @data[seq_to_index(seq)] = @data[seq_to_index(seq)].set_passed(value)
     end
 

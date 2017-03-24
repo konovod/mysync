@@ -144,6 +144,13 @@ def one_exchange(cli, udp_cli)
   cli.wait_answer = nil
 end
 
+def one_login(udp_cli)
+  udp_cli.autosend_delay = 0.05.seconds
+  answer = udp_cli.wait_login
+  udp_cli.autosend_delay = nil
+  return answer
+end
+
 class TestingClient < MySync::UDPGameClient
   def endpoint=(point)
     @endpoint = point

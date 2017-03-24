@@ -148,6 +148,7 @@ module MySync
       data.copy_from @received_decrypted.slice
       @last_response = Time.now
       @logged = LoginState::LoggedIn
+      @endpoint.reset
       @login_complete.send data
     end
 

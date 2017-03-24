@@ -55,6 +55,13 @@ module MySync
     def on_disconnect
     end
 
+    def reset
+      @local_acks.reset
+      @remote_acks.reset
+      @remote_message_acks.reset
+      @requested_disconnect = false
+    end
+
     def local_seq : Sequence
       @local_acks.cur_seq
     end
@@ -99,7 +106,12 @@ module MySync
       header = Cannon.decode @io_received, PacketHeader
       return if header.sequence == self.remote_seq || @remote_acks.passed(header.sequence)
       # process acks of remote packets
-      most_recent = self.remote_seq < header.sequence
+      delta = SequenceSigned.new(header.sequence - self.remote_seq)
+      if delta < -N_ACKS + 1 # too_old
+        p "discarding as old #{delta}"
+        return
+      end
+      most_recent = delta >= 0
       if most_recent
         self.remote_seq = header.sequence
       end
