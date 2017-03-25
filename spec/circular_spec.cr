@@ -1,7 +1,7 @@
 require "spec"
 require "../src/mysync/circular"
 
-ackrecord TestAck, payload : String
+ackrecord TestAck, payload : String = ""
 
 describe "CircularAckBuffer" do
   buf = MySync::CircularAckBuffer(TestAck).new

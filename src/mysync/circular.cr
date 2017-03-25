@@ -6,8 +6,7 @@ module MySync
     getter cur_seq : Sequence
 
     def initialize
-      t = uninitialized T
-      t = t.set_passed false
+      t = T.new
       @data = StaticArray(T, N_ACKS).new(t)
       @cur_pos = Sequence.new(0)
       @cur_seq = Sequence.new(0)
@@ -16,7 +15,7 @@ module MySync
     def reset
       @cur_pos = Sequence.new(0)
       @cur_seq = Sequence.new(0)
-      t = uninitialized T
+      t = T.new
       t = t.set_passed false
       N_ACKS.times do |i|
         @data[i] = t
@@ -96,7 +95,7 @@ end
 
 # TODO - move passed to bitmap
 macro ackrecord(name, *properties)
-  record {{name}}, passed : Bool, {{*properties}} do
+  record {{name}}, passed : Bool = false, {{*properties}} do
     def set_passed(value : Bool)
       return self if value == self.passed
       @passed = value

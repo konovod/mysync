@@ -30,7 +30,7 @@ module MySync
   # for our packets we save a time to measure ping
   # for remote we need only the fact that it passed
   ackrecord RemoteAckData
-  ackrecord LocalAckData, sent : Time, commands : Array(Command)
+  ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
   ackrecord RemoteMessage
 
   abstract class EndPoint
