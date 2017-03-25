@@ -1,8 +1,9 @@
-require "./endpoint"
 require "monocypher"
 require "socket"
+require "./endpoint"
 require "./network"
 require "./package"
+require "./rpc"
 
 module MySync
   enum LoginState
@@ -17,7 +18,7 @@ module MySync
     property debug_loses
     property autosend_delay : Time::Span?
     property disconnect_timeout : Time::Span
-    @login_key : Crypto::PublicKey?
+    @server_key : Crypto::PublicKey?
 
     def initialize(@endpoint : EndPoint, @address : Address)
       @debug_loses = false
@@ -28,12 +29,12 @@ module MySync
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_RAW_SIZE)
       @tosend_header = @tosend.to_unsafe.as(UInt32*)
-      @symmetric_key = Crypto::SymmetricKey.new
       @received_header = @raw_received.to_unsafe.as(UInt32*)
       @rpc_manager = Cannon::Rpc::Manager.new
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
       @login_data = Bytes.new(0)
-      @login_key = nil
+      @login_key = Crypto::SymmetricKey.new
+      @symmetric_key = Crypto::SymmetricKey.new
       @login_complete = Channel(Bytes).new
       @logged = LoginState::NoData
       @autosend_delay = nil
@@ -107,7 +108,7 @@ module MySync
     end
 
     def login(public_key : Crypto::PublicKey, authdata : Bytes) : Nil
-      @login_key = public_key
+      @server_key = public_key
       @login_data = authdata
       @logged = LoginState::NotLoggedIn
     end
@@ -119,13 +120,13 @@ module MySync
 
     private def send_login
       secret_key = Crypto::SecretKey.new
-      @symmetric_key = Crypto::SymmetricKey.new(our_secret: secret_key, their_public: @login_key.not_nil!)
+      @login_key = Crypto::SymmetricKey.new(our_secret: secret_key, their_public: @server_key.not_nil!)
       our_public = Crypto::PublicKey.new(secret: secret_key)
       # we encrypt auth data and add our public key as additional data
       @tosend.size = 4 + Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC + @login_data.size
       @tosend.slice[4, Crypto::PublicKey.size].copy_from our_public.to_slice
       Crypto.encrypt(
-        key: @symmetric_key,
+        key: @login_key,
         input: @login_data,
         #        additional: our_public.to_slice,
         output: @tosend.slice[4 + Crypto::PublicKey.size, @login_data.size + Crypto::OVERHEAD_SYMMETRIC])
@@ -142,10 +143,12 @@ module MySync
       # decrypt it with symmetric_key
       return if package.size < Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
-      return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
-      # all is fine, copy data to output and start listening
-      data = Bytes.new(@received_decrypted.size)
-      data.copy_from @received_decrypted.slice
+      return unless Crypto.decrypt(key: @login_key, input: package, output: @received_decrypted.slice)
+      # all is fine, copy symmetric_key and data to output and start listening
+      @login_key.reroll
+      @symmetric_key.to_slice.copy_from @received_decrypted.slice[0, Crypto::SymmetricKey.size]
+      data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size)
+      data.copy_from @received_decrypted.slice[Crypto::SymmetricKey.size, data.size]
       @last_response = Time.now
       @logged = LoginState::LoggedIn
       @endpoint.reset

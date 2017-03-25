@@ -3,6 +3,7 @@ require "./endpoint_types"
 require "./circular"
 require "./stats"
 require "./commands"
+require "./rpc"
 
 module MySync
   module EndPointFactory

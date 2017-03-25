@@ -28,6 +28,7 @@ module MySync
       @header = @tosend.to_unsafe.as(UInt32*)
 
       @control = Channel(ConnectionCommand).new
+      @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
@@ -59,26 +60,36 @@ module MySync
       return if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
       akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
-      @symmetric_key = @server.gen_key(akey)
+      @login_key = @server.gen_key(akey)
       return unless Crypto.decrypt(
-                      key: @symmetric_key,
+                      key: @login_key,
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
                       # additional: @received.slice[0, Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
       tuple = @endpoint_factory.new_endpoint(@received_decrypted.slice)
       return unless tuple
+      @symmetric_key.reroll
       @endpoint = tuple[:endpoint]
       # now init rpc connection
       tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @server.rpc_manager
       # and send response
-      send_response tuple[:response], is_login: true
+      response = Bytes.new(Crypto::SymmetricKey.size + tuple[:response].size)
+      response.copy_from @symmetric_key.to_slice
+      response[Crypto::SymmetricKey.size, tuple[:response].size].copy_from tuple[:response]
+      send_response response, is_login: true
     end
 
     private def send_response(data, *, is_login : Bool)
       # then encrypt
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
-      @header.value = is_login ? RIGHT_LOGIN_SIGN : RIGHT_SIGN
-      Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      if is_login
+        @header.value = RIGHT_LOGIN_SIGN
+        Crypto.encrypt(key: @login_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
+        @login_key.reroll
+      else
+        @header.value = RIGHT_SIGN
+        Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      end
       # then send back
       begin
         @socket.send(@tosend.slice, @address)
