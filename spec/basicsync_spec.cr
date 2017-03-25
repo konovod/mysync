@@ -87,7 +87,8 @@ it "disconnects old clients" do
   udp_srv.disconnect_delay = 0.01.seconds
   sleep(0.5.seconds)
   udp_srv.n_clients.should eq 0
-  SpecLogger.dump_events.should eq ["SERVER: user disconnected: 2", "SERVER: connection complete"]
+  SpecLogger.dump_events.should eq ["SERVER: user disconnected: it_s_another", "SERVER: connection complete"]
+  udp_srv.disconnect_delay = 0.1.seconds
 end
 
 udp_cli.disconnect_timeout = 0.2.seconds
@@ -110,6 +111,7 @@ it "works with client on another port" do
 end
 
 it "works with restarted client on same port" do
+  sleep(0.5.seconds)
   SpecLogger.dump_events
   cli.verbose = true
   srv_inst.verbose = false
@@ -118,7 +120,7 @@ it "works with restarted client on same port" do
   udp_cli.login(public_key, "it_s_another2".to_slice)
   answer = one_login(udp_cli)
   one_exchange(cli, udp_cli)
-  SpecLogger.dump_events.should eq ["SERVER: logged in: it_s_another2", "CLIENT: sending", "CLIENT: received"]
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another2", "CLIENT: sending", "CLIENT: received"]
 end
 
 N = 100

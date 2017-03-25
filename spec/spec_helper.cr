@@ -55,7 +55,7 @@ class TestUserContext < MySync::EndPoint
   property verbose : Bool = false
 
   def on_disconnect
-    SpecLogger.log_srv "user disconnected: #{@user}"
+    SpecLogger.log_srv "user disconnected: #{@username}"
   end
 
   def on_received_sync
@@ -68,7 +68,7 @@ class TestUserContext < MySync::EndPoint
     @local_sync = @server.state
   end
 
-  def initialize(@server : TestServer, @user : Int32)
+  def initialize(@server : TestServer, @user : Int32, @username : String)
     super()
   end
 end
@@ -82,7 +82,7 @@ class TestServer
     username = String.new(authdata)
     SpecLogger.log_srv "logged in: #{username}"
     userid = 2
-    point = TestUserContext.new(self, userid)
+    point = TestUserContext.new(self, userid, username)
     @test_endpoint = point
     {endpoint: point, response: "you_can_pass".to_slice}
   end
