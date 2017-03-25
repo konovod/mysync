@@ -25,6 +25,7 @@ module MySync
 
     def add(data : Bytes) : Nil
       @last_sent_id += 1
+      @last_sent_id += 1 if @last_sent_id == 0
       cmd = Command.new(@last_sent_id, data)
       @commands << cmd
     end

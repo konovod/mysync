@@ -129,6 +129,7 @@ module MySync
       # now process async
       while @io_received.pos < @io_received.size
         id = @io_received.read_bytes(Sequence)
+        break if id == 0
         asize = @io_received.read_bytes(CmdSize)
         if @remote_message_acks.passed(id)
           @io_received.pos += asize
@@ -151,14 +152,15 @@ module MySync
       send_local_sync
       # process async
       # TODO - check if too big and split
-      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - @io_tosend.pos, Time.now) do |cmd|
+      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - sizeof(CmdID) - @io_tosend.pos, Time.now) do |cmd|
         @io_tosend.write_bytes(cmd.id)
         @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
         @io_tosend.write(cmd.data.to_slice)
         cur_commands << cmd
         true
       end
-      return Bytes.new(@io_tosend.buffer, @io_tosend.pos)
+      @io_tosend.write_bytes(CmdID.new(0))
+      return @io_tosend.to_slice
     end
   end
 end
