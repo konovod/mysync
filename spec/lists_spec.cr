@@ -1,17 +1,10 @@
-# require "./spec_helper"
+require "./spec_helper"
 require "../src/mysync/lists"
 
 # on client side - client contains lists manager, inside there are lists.
 # There are commands to make, remove and update items
 
-class IdItem
-  property id : MySync::ItemID = 0u16
-
-  def initialize(@id)
-  end
-end
-
-class Player < IdItem
+class Player < MySync::IdItem
   property name = ""
   property hp = 100
 end
@@ -19,7 +12,7 @@ end
 record PlayerAdder, name : String, hp : Int32
 record PlayerUpdater, hp : Int32
 
-# class Bullet < IdItem
+# class Bullet < MySync::IdItem
 #   property x = 0
 #   property y = 0
 # end
@@ -54,3 +47,8 @@ class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpda
     DeltaState.new(item.hp)
   end
 end
+
+cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
+udp_cli.login(public_key, Bytes.new(1))
+one_login(udp_cli)
+srv_inst = srv.test_endpoint.not_nil!

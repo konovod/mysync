@@ -34,10 +34,7 @@ end
 
 cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
 udp_cli.login(public_key, Bytes.new(1))
-udp_cli.autosend_delay = 0.1.seconds
-# udp_cli.send_manually
-answer = udp_cli.wait_login
-udp_cli.autosend_delay = nil
+one_login(udp_cli)
 srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!

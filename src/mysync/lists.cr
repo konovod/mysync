@@ -1,6 +1,13 @@
 module MySync
   alias ItemID = UInt16
 
+  class IdItem
+    property id : MySync::ItemID = 0u16
+
+    def initialize(@id)
+    end
+  end
+
   # class representing syncronized list of entities on client
   # it receives packets and parse them to calls of `item_added`, `item_removed` and `item_updated`
   abstract class ClientSyncList(T, FullState, DeltaState)
