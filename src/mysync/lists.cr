@@ -1,7 +1,7 @@
 module MySync
   alias ItemID = UInt16
 
-  class IdItem
+  class ListItem
     property id : MySync::ItemID = 0u16
 
     def initialize(@id)
@@ -28,16 +28,22 @@ module MySync
   # in response it writes to io data that will create, remove or modify items on client.
   #
   # from implementation it requires `full_state` and `delta_state` methods that serialize items
-  abstract class ServerSyncList(T, FullState, DeltaState)
-    @items = Hash(ItemID, T).new
-    @last_updated = Hash(ItemID, Time).new
 
+  class ServerConnectionSyncList
+    @items = Hash(ItemID, ListItem).new
+    @last_updated = Hash(ItemID, Time).new
+  end
+
+  abstract class ServerSyncList(T, FullState, DeltaState)
     abstract def full_state(item : T) : FullState
     abstract def delta_state(old_state : FullState, item : T) : DeltaState
+    abstract def iterate(who : GameConnection, &block : T -> Nil)
     # abstract def priority : Int32 TODO: lists prioritization
 
   end
 
-  class SyncListsManager
+  # class representing syncronized list of entities on server
+  # server-wide part, has `iterate` method that iterates over them for a given client
+  abstract class ServerSyncList
   end
 end
