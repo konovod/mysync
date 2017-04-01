@@ -38,7 +38,7 @@ one_login(udp_cli)
 srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!
-udp_srv.rpc_manager.add GreetService.new
+srv.rpc_manager.add GreetService.new
 
 SpecLogger.dump_events
 
