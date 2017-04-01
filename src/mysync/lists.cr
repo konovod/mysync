@@ -21,10 +21,9 @@ module MySync
     property fading_delay : Time::Span = 1.seconds
 
     abstract def process_received(io : IO)
-    # abstract def item_added(id : ItemID, data : FullState) : T
-    # abstract def item_removed(item : T)
-    # abstract def item_updated(item : T, data : DeltaState)
-
+    abstract def item_added(id : ItemID, data)
+    abstract def item_removed(item)
+    abstract def item_updated(item, data)
   end
 
   module SyncListData(T, FullState, DeltaState)
