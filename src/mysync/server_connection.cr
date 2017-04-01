@@ -92,6 +92,7 @@ module MySync
         Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
       end
       # then send back
+      return if @server.debug_loss
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno

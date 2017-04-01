@@ -36,6 +36,34 @@ it "passed data are applied" do
   cli.remote_sync.all_data[5].should eq "hello"
 end
 
+it "debug_losses works on client" do
+  cli.local_sync.data = "HELLO"
+  cli.local_sync.num = 5
+  udp_cli.debug_loss = true
+  one_exchange(cli, udp_cli)
+  srv.state.all_data[5].should_not eq "HELLO"
+  one_exchange(cli, udp_cli)
+  cli.remote_sync.all_data[5].should_not eq "HELLO"
+  udp_cli.debug_loss = false
+  one_exchange(cli, udp_cli)
+  srv.state.all_data[5].should eq "HELLO"
+  one_exchange(cli, udp_cli)
+  cli.remote_sync.all_data[5].should eq "HELLO"
+end
+
+it "debug_losses works on server" do
+  cli.local_sync.data = "OKAY"
+  cli.local_sync.num = 5
+  udp_srv.debug_loss = true
+  one_exchange(cli, udp_cli)
+  srv.state.all_data[5].should eq "OKAY"
+  one_exchange(cli, udp_cli)
+  cli.remote_sync.all_data[5].should_not eq "OKAY"
+  udp_srv.debug_loss = false
+  one_exchange(cli, udp_cli)
+  cli.remote_sync.all_data[5].should eq "OKAY"
+end
+
 # TODO - specs for ack_mask
 it "update seq_iq" do
   cli.local_seq = 5u16

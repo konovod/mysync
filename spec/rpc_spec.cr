@@ -59,12 +59,12 @@ end
 
 it "don't repeat old procedures" do
   SpecLogger.dump_events
-  udp_cli.debug_loses = true
+  udp_cli.debug_loss = true
   20.times do
     # one_exchange(cli, udp_cli)
     udp_cli.send_manually
   end
-  udp_cli.debug_loses = false
+  udp_cli.debug_loss = false
   10.times do
     udp_cli.send_manually
     # one_exchange(cli, udp_cli)
@@ -78,13 +78,13 @@ end
 
 it "rpc without response with loses" do
   greeter.no_answer_without_response "test1"
-  udp_cli.debug_loses = true
+  udp_cli.debug_loss = true
   5.times do
     one_exchange(cli, udp_cli)
   end
   sleep 0.2
   greeter.no_answer_without_response "test2"
-  udp_cli.debug_loses = false
+  udp_cli.debug_loss = false
   20.times do
     one_exchange(cli, udp_cli)
   end
@@ -93,7 +93,7 @@ end
 
 it "rpc with response" do
   done = Channel(Nil).new
-  udp_cli.debug_loses = true
+  udp_cli.debug_loss = true
   udp_cli.autosend_delay = 0.05.seconds
   spawn do
     greeter.greet("Alice").should eq "hello Alice"
@@ -104,6 +104,6 @@ it "rpc with response" do
     done.send nil
   end
   sleep 0.2
-  udp_cli.debug_loses = false
+  udp_cli.debug_loss = false
   done.receive
 end

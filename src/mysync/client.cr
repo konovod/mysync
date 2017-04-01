@@ -15,13 +15,12 @@ module MySync
   class UDPGameClient
     getter socket
     getter rpc_manager
-    property debug_loses
+    property debug_loss = false
     property autosend_delay : Time::Span?
     property disconnect_timeout : Time::Span
     @server_key : Crypto::PublicKey?
 
     def initialize(@endpoint : EndPoint, @address : Address)
-      @debug_loses = false
       @socket = UDPSocket.new
       @socket.read_timeout = Time::Span.new(0, 0, 1)
       @socket.connect @address
@@ -163,7 +162,7 @@ module MySync
       Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       @tosend_header.value = RIGHT_SIGN
-      return if @debug_loses
+      return if @debug_loss
       begin
         @socket.send(@tosend.slice, @address)
       rescue ex : Errno
