@@ -64,7 +64,9 @@ class ServerPlayersList < MySync::ServerSyncList
   end
 
   def new_player(name, hp)
-    all_players << Player.new(@uids.generate, name, hp)
+    Player.new(@uids.generate, name, hp).tap do |pl|
+      all_players << pl
+    end
   end
 
   def delete_player(player)
@@ -95,4 +97,66 @@ it "syncs added elements" do
   cli_list.players.size.should eq 1
   cli_list.players[0].name.should eq "test"
   cli_list.players[0].hp.should eq 99
+  srv_list.new_player("test2", 98)
+  one_exchange(cli, udp_cli)
+  cli_list.players.size.should eq 2
+  cli_list.players[1].name.should eq "test2"
+  cli_list.players[1].hp.should eq 98
+end
+
+it "syncs deleting elements" do
+  srv_list.delete_player(srv_list.all_players[0])
+  one_exchange(cli, udp_cli)
+  cli_list.players.size.should eq 1
+  cli_list.players[0].name.should eq "test2"
+end
+
+it "syncs updating elements" do
+  pl1 = srv_list.all_players[0]
+  pl1.hp = 50
+  cli_list.players[0].hp.should_not eq 50
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].hp.should eq 50
+end
+
+pending "use delta for updating elements" do
+  pl1 = srv_list.all_players[0]
+  pl1.name = "me"
+  cli_list.players[0].name.should_not eq "me"
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].name.should_not eq "me"
+end
+
+it "syncs adding in case of packets loss" do
+  srv_list.new_player("test3", 99)
+  udp_cli.debug_loses = true
+  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli)
+  srv_list.new_player("test4", 99)
+  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli)
+  cli_list.players.size.should eq 1
+  udp_cli.debug_loses = false
+  one_exchange(cli, udp_cli)
+  cli_list.players.size.should eq 3
+  one_exchange(cli, udp_cli)
+  cli_list.players[1].name.should eq "test3"
+  cli_list.players[2].name.should eq "test4"
+end
+
+pending "syncs deleting in case of packets loss" do
+  name = srv_list.all_players[0]
+  srv_list.delete_player(srv_list.all_players[0])
+  cli_list.players[0].name.should eq name
+  udp_cli.debug_loses = true
+  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].name.should eq name
+  udp_cli.debug_loses = false
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].name.should eq name
+  cli_list.fading_delay = 0.01.seconds
+  sleep 0.1
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].name.should_not eq name
 end

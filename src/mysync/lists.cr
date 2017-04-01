@@ -18,6 +18,7 @@ module MySync
   # it receives packets and parse them to calls of `item_added`, `item_removed` and `item_updated`
   abstract class ClientSyncList
     @last_updated = Hash(ItemID, Time).new
+    property fading_delay : Time::Span = 1.seconds
 
     abstract def process_received(io : IO)
     # abstract def item_added(id : ItemID, data : FullState) : T
