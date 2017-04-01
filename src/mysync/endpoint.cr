@@ -4,9 +4,13 @@ require "./circular"
 require "./stats"
 require "./commands"
 require "./rpc"
+require "./lists"
 
 module MySync
   module EndPointFactory
+    getter rpc_manager = Cannon::Rpc::Manager.new
+    getter sync_lists = SyncListsManager.new
+
     abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint, response: Bytes}?
     abstract def on_connecting(ip : Address)
     abstract def on_disconnecting(ip : Address, ex : Exception?)
@@ -36,13 +40,13 @@ module MySync
 
   abstract class EndPoint
     getter requested_disconnect : Bool
-    getter cmd_buffer : CommandBuffer
-    property rpc_connection : CannonInterface?
+    getter cmd_buffer = CommandBuffer.new
+    property! rpc_connection : CannonInterface?
+    property! sync_lists : SyncListsManager?
 
     def initialize
       super
       @requested_disconnect = false
-      @cmd_buffer = CommandBuffer.new
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @remote_acks = CircularAckBuffer(RemoteAckData).new

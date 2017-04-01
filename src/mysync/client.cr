@@ -32,6 +32,7 @@ module MySync
       @received_header = @raw_received.to_unsafe.as(UInt32*)
       @rpc_manager = Cannon::Rpc::Manager.new
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
+      @endpoint.sync_lists = SyncListsManager.new
       @login_data = Bytes.new(0)
       @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new

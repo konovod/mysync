@@ -8,7 +8,6 @@ require "./server_connection"
 module MySync
   class UDPGameServer
     @header : UInt32*
-    getter rpc_manager
     property disconnect_delay
 
     def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
@@ -19,7 +18,6 @@ module MySync
       @socket.bind("0.0.0.0", @port)
       @single_buffer = Bytes.new(MAX_RAW_SIZE)
       @header = @single_buffer.to_unsafe.as(UInt32*)
-      @rpc_manager = Cannon::Rpc::Manager.new
       spawn { listen_fiber }
       spawn { timed_fiber }
     end

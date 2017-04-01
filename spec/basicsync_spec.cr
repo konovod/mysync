@@ -123,7 +123,7 @@ it "works with restarted client on same port" do
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another2", "CLIENT: sending", "CLIENT: received"]
 end
 
-N = 100
+N = 20
 it "process multiple connections" do
   udp_srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
@@ -144,5 +144,6 @@ it "process multiple connections" do
     acli.benchmark_complete.receive
   end
   t = clients.sum &.stat_pingtime
-  pp t*1000.0 / N
+  us = (t*1000000.0 / N / N).to_i
+  p "time per packet: #{us} us"
 end

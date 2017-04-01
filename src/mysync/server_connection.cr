@@ -70,8 +70,9 @@ module MySync
       return unless tuple
       @symmetric_key.reroll
       @endpoint = tuple[:endpoint]
-      # now init rpc connection
-      tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @server.rpc_manager
+      # now init common data
+      tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @endpoint_factory.rpc_manager
+      tuple[:endpoint].sync_lists = @endpoint_factory.sync_lists
       # and send response
       response = Bytes.new(Crypto::SymmetricKey.size + tuple[:response].size)
       response.copy_from @symmetric_key.to_slice
