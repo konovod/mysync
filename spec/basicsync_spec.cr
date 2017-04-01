@@ -116,6 +116,9 @@ it "works with restarted client on same port" do
   cli.verbose = true
   srv_inst.verbose = false
   acli = TestClientEndpoint.new
+  # pretty hacky, but let it so
+  acli.rpc_connection = MySync::CannonInterface.new(acli, udp_cli.rpc_manager)
+  acli.sync_lists = MySync::SyncListsManager.new
   udp_cli.endpoint = acli
   udp_cli.login(public_key, "it_s_another2".to_slice)
   answer = one_login(udp_cli)

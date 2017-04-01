@@ -8,10 +8,6 @@ module MySync
     end
   end
 
-  abstract class AbstractClientSyncList
-    abstract def process_received(io : IO)
-  end
-
   enum ChangeType : UInt8
     ItemAddition
     ItemDeletion
@@ -20,40 +16,14 @@ module MySync
 
   # class representing syncronized list of entities on client
   # it receives packets and parse them to calls of `item_added`, `item_removed` and `item_updated`
-  abstract class ClientSyncList(T, FullState, DeltaState) < AbstractClientSyncList
-    @items = Hash(ItemID, T).new
+  abstract class ClientSyncList
     @last_updated = Hash(ItemID, Time).new
 
-    abstract def item_added(id : ItemID, data : FullState) : T
-    abstract def item_removed(item : T)
-    abstract def item_updated(item : T, data : DeltaState)
+    abstract def process_received(io : IO)
+    # abstract def item_added(id : ItemID, data : FullState) : T
+    # abstract def item_removed(item : T)
+    # abstract def item_updated(item : T, data : DeltaState)
 
-    def process_received(io : IO)
-      while io.pos < io.size
-        id = Cannon.decode(io, ItemID)
-        break if id == 0
-        typ = ChangeType.new(Cannon.decode(io, UInt8))
-        case typ
-        when ChangeType::ItemAddition
-          full = Cannon.decode(io, FullState)
-          if old_item = @items[id]?
-            item_removed(old_item)
-          end
-          @items[id] = item_added(id, full)
-        when ChangeType::ItemUpdate
-          delta = Cannon.decode(io, DeltaState)
-          item = @items[id]?
-          if item
-            item_updated(item, delta)
-          else
-            p "ignoring failed delta" # TODO
-          end
-        when ChangeType::ItemDeletion
-          item = @items.delete(id)
-          item_removed(item) if item
-        end
-      end
-    end
   end
 
   # class representing syncronized list of entities on server
@@ -114,10 +84,10 @@ module MySync
   end
 
   class SyncListsManager
-    @client_lists = [] of AbstractClientSyncList
+    @client_lists = [] of ClientSyncList
     @server_lists = [] of AbstractServerSyncList
 
-    def <<(item : (AbstractServerSyncList | AbstractClientSyncList))
+    def <<(item : (AbstractServerSyncList | ClientSyncList))
       if item.is_a? AbstractServerSyncList
         @server_lists << item
       else
@@ -131,6 +101,36 @@ module MySync
 
     def generate_message(who, io : IO)
       @server_lists.each { |list| list.generate_message who, io }
+    end
+  end
+end
+
+macro client_generics_crunch(typ, fullstate, deltastate)
+  @items = Hash(MySync::ItemID, {{typ}}).new
+  def process_received(io : IO)
+    while io.pos < io.size
+      id = Cannon.decode(io, MySync::ItemID)
+      break if id == 0
+      typ = MySync::ChangeType.new(Cannon.decode(io, UInt8))
+      case typ
+      when MySync::ChangeType::ItemAddition
+        full = Cannon.decode(io, {{fullstate}})
+        if old_item = @items[id]?
+          item_removed(old_item)
+        end
+        @items[id] = item_added(id, full)
+      when MySync::ChangeType::ItemUpdate
+        delta = Cannon.decode(io, {{deltastate}})
+        item = @items[id]?
+        if item
+          item_updated(item, delta)
+        else
+          p "ignoring failed delta" # TODO
+        end
+      when MySync::ChangeType::ItemDeletion
+        item = @items.delete(id)
+        item_removed(item) if item
+      end
     end
   end
 end

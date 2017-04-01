@@ -26,7 +26,8 @@ end
 # end
 #
 
-class ClientPlayersList < MySync::ClientSyncList(Player, PlayerAdder, PlayerUpdater)
+class ClientPlayersList < MySync::ClientSyncList
+  client_generics_crunch(Player, PlayerAdder, PlayerUpdater)
   getter players = [] of Player
 
   def item_added(id, data)
@@ -43,11 +44,6 @@ class ClientPlayersList < MySync::ClientSyncList(Player, PlayerAdder, PlayerUpda
 
   def item_updated(player, data)
     player.hp = data.hp
-  end
-
-  # fix for a https://github.com/crystal-lang/crystal/issues/4224
-  def process_received(*args)
-    super(args)
   end
 end
 

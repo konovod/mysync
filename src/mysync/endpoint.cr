@@ -42,8 +42,8 @@ module MySync
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
     getter sync_lists_serverside = SyncListEndpointSpecific.new
-    property! rpc_connection : CannonInterface?
-    property! sync_lists : SyncListsManager?
+    property! rpc_connection : CannonInterface
+    property! sync_lists : SyncListsManager
 
     def initialize
       super
