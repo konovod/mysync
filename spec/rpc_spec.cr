@@ -96,12 +96,11 @@ it "rpc with response" do
   udp_cli.debug_loses = true
   udp_cli.autosend_delay = 0.05.seconds
   spawn do
-    pp greeter.greet("Alice")
+    greeter.greet("Alice").should eq "hello Alice"
     start = Time.now
     pong = greeter.ping Time.now
     finish = Time.now
-    puts "      Ping time: #{pong - start}"
-    puts "Round-trip time: #{finish - start}"
+    p "Response: #{finish - pong}"
     done.send nil
   end
   sleep 0.2

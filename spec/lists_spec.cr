@@ -57,7 +57,7 @@ end
 cli_list = ClientPlayersList.new
 srv_list = ServerPlayersList.new
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
+cli, udp_cli, srv, udp_srv, public_key = make_test_pair(3)
 cli.sync_lists << cli_list
 srv.sync_lists << srv_list
 

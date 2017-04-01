@@ -88,7 +88,7 @@ class TestServer
   end
 
   def on_connecting(ip : Socket::IPAddress)
-    p "adding connection #{ip}"
+    # p "adding connection #{ip}"
     SpecLogger.log_srv "adding connection"
   end
 
@@ -97,7 +97,7 @@ class TestServer
       p "connection #{ip} raised #{ex}"
       SpecLogger.log_srv "connection raised"
     else
-      p "connection #{ip} complete"
+      # p "connection #{ip} complete"
       SpecLogger.log_srv "connection complete"
     end
   end
