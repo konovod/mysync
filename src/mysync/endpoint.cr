@@ -41,6 +41,7 @@ module MySync
   abstract class EndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
+    getter sync_lists_serverside = SyncListEndpointSpecific.new
     property! rpc_connection : CannonInterface?
     property! sync_lists : SyncListsManager?
 
@@ -142,6 +143,8 @@ module MySync
           command_received
         end
       end
+      # now process syncronized lists
+      sync_lists.process_received(@io_received)
     end
 
     def process_sending : Bytes
@@ -164,6 +167,8 @@ module MySync
         true
       end
       @io_tosend.write_bytes(CmdID.new(0))
+      # process syncronized lists
+      sync_lists.generate_message(self, @io_tosend)
       return @io_tosend.to_slice
     end
   end

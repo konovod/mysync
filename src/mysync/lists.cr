@@ -1,18 +1,8 @@
+require "./uniqid"
+
 module MySync
-  alias ItemID = UInt16
-
-  class UniqID
-    @counter = MySync::ItemID.new(0)
-
-    def get
-      @counter += 1
-      @counter += 1 if @counter == 0
-      return @counter
-    end
-  end
-
   class ListItem
-    property id : MySync::ItemID
+    property id : ItemID
 
     def initialize(@id)
     end
@@ -20,6 +10,12 @@ module MySync
 
   abstract class AbstractClientSyncList
     abstract def process_received(io : IO)
+  end
+
+  enum ChangeType : UInt8
+    ItemAddition
+    ItemDeletion
+    ItemUpdate
   end
 
   # class representing syncronized list of entities on client
@@ -33,19 +29,42 @@ module MySync
     abstract def item_updated(item : T, data : DeltaState)
 
     def process_received(io : IO)
-      # TODO
+      while io.pos < io.size
+        id = Cannon.decode(io, ItemID)
+        break if id == 0
+        typ = ChangeType.new(Cannon.decode(io, UInt8))
+        case typ
+        when ChangeType::ItemAddition
+          full = Cannon.decode(io, FullState)
+          if old_item = @items[id]?
+            item_removed(old_item)
+          end
+          @items[id] = item_added(id, full)
+        when ChangeType::ItemUpdate
+          delta = Cannon.decode(io, DeltaState)
+          item = @items[id]?
+          if item
+            item_updated(item, delta)
+          else
+            p "ignoring failed delta" # TODO
+          end
+        when ChangeType::ItemDeletion
+          item = @items.delete(id)
+          item_removed(item) if item
+        end
+      end
     end
   end
 
   # class representing syncronized list of entities on server
   # part with connection data
-  class ServerConnectionSyncList
-    @items = Hash(ItemID, ListItem).new
-    @last_updated = Hash(ItemID, Time).new
+  class SyncListEndpointSpecific
+    # @image = Hash(ItemID, FullState).new TODO - lol, system is broken again
+    getter last_updated = Hash(ItemID, Time).new
   end
 
   abstract class AbstractServerSyncList
-    abstract def generate_message(io : IO)
+    abstract def generate_message(who : EndPoint, io : IO)
   end
 
   # class representing syncronized list of entities on server
@@ -57,11 +76,40 @@ module MySync
   abstract class ServerSyncList(T, FullState, DeltaState) < AbstractServerSyncList
     abstract def full_state(item : T) : FullState
     abstract def delta_state(old_state : FullState, item : T) : DeltaState
-    abstract def iterate(who : GameConnection, &block : T -> Nil)
+    abstract def iterate(who : EndPoint, &block : T -> Nil)
 
     # abstract def priority : Int32 TODO: lists prioritization
-    def generate_message(io : IO)
-      # TODO
+    # TODO: sort according to time? total mechanism of overflow processing
+    def generate_message(who : EndPoint, io : IO)
+      state = who.sync_lists_serverside
+      actual = Time.now
+      # addition\update messages
+      iterate(who) do |item|
+        id = item.id
+        Cannon.encode io, id
+        # old = state.image[id]?
+        full = full_state(item)
+        # if old
+        #   Cannon.encode io, ItemUpdate
+        #   Cannon.encode delta_state(old, item)
+        # else
+        Cannon.encode io, ChangeType::ItemAddition.value
+        Cannon.encode io, full
+        # end
+        # state.image[id] = full
+        state.last_updated[id] = actual
+      end
+      # deletion messages
+      state.last_updated.reject! do |id, time|
+        # state.image...
+        flag = time != actual
+        if flag
+          Cannon.encode io, id
+          Cannon.encode io, ChangeType::ItemDeletion.value
+        end
+        flag
+      end
+      Cannon.encode io, ItemID.new(0)
     end
   end
 
@@ -81,8 +129,8 @@ module MySync
       @client_lists.each { |list| list.process_received io }
     end
 
-    def generate_message(io : IO)
-      @server_lists.each { |list| list.generate_message io }
+    def generate_message(who, io : IO)
+      @server_lists.each { |list| list.generate_message who, io }
     end
   end
 end

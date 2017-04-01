@@ -1,19 +1,24 @@
 require "./spec_helper"
 require "../src/mysync/lists"
+require "../src/mysync/uniqid"
 
 # on client side - client contains lists manager, inside there are lists.
 # There are commands to make, remove and update items
 
 class Player < MySync::ListItem
-  property name = ""
-  property hp = 100
+  property name
+  property hp
 
-  def initialize(@id, @name, @hp)
+  def initialize(@id, @name = "", @hp = 100)
   end
 end
 
-record PlayerAdder, name : String, hp : Int32
-record PlayerUpdater, hp : Int32
+record PlayerAdder, name : String, hp : Int32 do
+  include Cannon::Auto
+end
+record PlayerUpdater, hp : Int32 do
+  include Cannon::Auto
+end
 
 # class Bullet < MySync::IdItem
 #   property x = 0
@@ -32,18 +37,23 @@ class ClientPlayersList < MySync::ClientSyncList(Player, PlayerAdder, PlayerUpda
     end
   end
 
-  def item_removed(item)
+  def item_removed(player)
     players.delete player
   end
 
-  def item_updated(item, data)
+  def item_updated(player, data)
     player.hp = data.hp
+  end
+
+  # fix for a https://github.com/crystal-lang/crystal/issues/4224
+  def process_received(*args)
+    super(args)
   end
 end
 
 class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpdater)
   getter all_players = [] of Player
-  @uids = MySync::UniqID.new
+  @uids = MySync::IDS.new
 
   def full_state(item)
     FullState.new(item.name, item.hp)
@@ -58,7 +68,17 @@ class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpda
   end
 
   def new_player(name, hp)
-    all_players << Player.new(@uids.get, name, hp)
+    all_players << Player.new(@uids.generate, name, hp)
+  end
+
+  def delete_player(player)
+    all_players.delete player
+    @uids.recycle player.id
+  end
+
+  # fix for a https://github.com/crystal-lang/crystal/issues/4224
+  def generate_message(*args)
+    super(args)
   end
 end
 
