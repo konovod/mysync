@@ -24,12 +24,25 @@ module MySync
     abstract def item_added(id : ItemID, data)
     abstract def item_removed(item)
     abstract def item_updated(item, data)
+
+    def check_fading
+      actual = Time.now
+      @last_updated.reject! do |id, time|
+        flag = actual - time > fading_delay
+        if flag
+          p "fading!"
+          item = @items.delete(id)
+          item_removed(item) if item
+        end
+      end
+    end
   end
 
   module SyncListData(T, FullState, DeltaState)
     @items = Hash(MySync::ItemID, T).new
 
     def process_received(io : IO)
+      actual = Time.now
       while io.pos < io.size
         id = Cannon.decode(io, MySync::ItemID)
         break if id == 0
@@ -41,19 +54,23 @@ module MySync
             item_removed(old_item)
           end
           @items[id] = item_added(id, full)
+          @last_updated[id] = actual
         when MySync::ChangeType::ItemUpdate
           delta = Cannon.decode(io, DeltaState)
           item = @items[id]?
           if item
             item_updated(item, delta)
           else
-            p "ignoring failed delta" # TODO
+            p "ignoring failed delta" # TODO - better log?
           end
+          @last_updated[id] = actual
         when MySync::ChangeType::ItemDeletion
           item = @items.delete(id)
+          @last_updated.delete(id)
           item_removed(item) if item
         end
       end
+      check_fading
     end
   end
 
