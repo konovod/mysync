@@ -7,6 +7,9 @@ require "../src/mysync/lists"
 class Player < MySync::ListItem
   property name = ""
   property hp = 100
+
+  def initialize(@id, @name, @hp)
+  end
 end
 
 record PlayerAdder, name : String, hp : Int32
@@ -40,6 +43,7 @@ end
 
 class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpdater)
   getter all_players = [] of Player
+  @uids = MySync::UniqID.new
 
   def full_state(item)
     FullState.new(item.name, item.hp)
@@ -51,6 +55,10 @@ class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpda
 
   def iterate(who, &block)
     @all_players.each { |pl| yield(pl) }
+  end
+
+  def new_player(name, hp)
+    all_players << Player.new(@uids.get, name, hp)
   end
 end
 
@@ -68,4 +76,12 @@ srv_inst = srv.test_endpoint.not_nil!
 it "starts empty" do
   cli_list.players.size.should eq 0
   srv_list.all_players.size.should eq 0
+end
+
+it "syncs added elements" do
+  srv_list.new_player("test", 99)
+  one_exchange(cli, udp_cli)
+  cli_list.players.size.should eq 1
+  cli_list.players[0].name.should eq "test"
+  cli_list.players[0].hp.should eq 99
 end

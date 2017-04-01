@@ -1,8 +1,18 @@
 module MySync
   alias ItemID = UInt16
 
+  class UniqID
+    @counter = MySync::ItemID.new(0)
+
+    def get
+      @counter += 1
+      @counter += 1 if @counter == 0
+      return @counter
+    end
+  end
+
   class ListItem
-    property id : MySync::ItemID = 0u16
+    property id : MySync::ItemID
 
     def initialize(@id)
     end
