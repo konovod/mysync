@@ -33,64 +33,29 @@ module MySync
     getter last_updated = Hash(ItemID, Time).new
   end
 
-  abstract class AbstractServerSyncList
-    abstract def generate_message(who : EndPoint, io : IO)
-  end
-
   # class representing syncronized list of entities on server
   # server-wide part, has `iterate` method that iterates over them for a given client
   # it has `process_sending` method ?
   # in response it writes to io data that will create, remove or modify items on client.
   #
   # from implementation it requires `full_state` and `delta_state` methods that serialize items
-  abstract class ServerSyncList(T, FullState, DeltaState) < AbstractServerSyncList
-    abstract def full_state(item : T) : FullState
-    abstract def delta_state(old_state : FullState, item : T) : DeltaState
-    abstract def iterate(who : EndPoint, &block : T -> Nil)
-
-    # abstract def priority : Int32 TODO: lists prioritization
-    # TODO: sort according to time? total mechanism of overflow processing
-    def generate_message(who : EndPoint, io : IO)
-      state = who.sync_lists_serverside
-      actual = Time.now
-      # addition\update messages
-      iterate(who) do |item|
-        id = item.id
-        Cannon.encode io, id
-        # old = state.image[id]?
-        full = full_state(item)
-        # if old
-        #   Cannon.encode io, ItemUpdate
-        #   Cannon.encode delta_state(old, item)
-        # else
-        Cannon.encode io, ChangeType::ItemAddition.value
-        Cannon.encode io, full
-        # end
-        # state.image[id] = full
-        state.last_updated[id] = actual
-      end
-      # deletion messages
-      state.last_updated.reject! do |id, time|
-        # state.image...
-        flag = time != actual
-        if flag
-          Cannon.encode io, id
-          Cannon.encode io, ChangeType::ItemDeletion.value
-        end
-        flag
-      end
-      Cannon.encode io, ItemID.new(0)
-    end
+  abstract class ServerSyncList
+  abstract def generate_message(who : EndPoint, io : IO)
+  # abstract def priority : Int32 TODO: lists prioritization
+  # abstract def full_state(item : {{}}) : FullState
+  # abstract def delta_state(old_state : FullState, item : T) : DeltaState
+  # abstract def iterate(who : EndPoint, &block : T -> Nil)
   end
 
   class SyncListsManager
     @client_lists = [] of ClientSyncList
-    @server_lists = [] of AbstractServerSyncList
+    @server_lists = [] of ServerSyncList
 
-    def <<(item : (AbstractServerSyncList | ClientSyncList))
-      if item.is_a? AbstractServerSyncList
+    def <<(item : (ServerSyncList | ClientSyncList))
+      case item
+      when ServerSyncList
         @server_lists << item
-      else
+      when ClientSyncList
         @client_lists << item
       end
     end
@@ -133,4 +98,41 @@ macro client_generics_crunch(typ, fullstate, deltastate)
       end
     end
   end
+end
+
+
+macro server_generics_crunch(typ, fullstate, deltastate)
+
+# TODO: sort according to time? total mechanism of overflow processing
+def generate_message(who : MySync::EndPoint, io : IO)
+  state = who.sync_lists_serverside
+  actual = Time.now
+  # addition\update messages
+  iterate(who) do |item|
+    id = item.id
+    Cannon.encode io, id
+    # old = state.image[id]?
+    full = full_state(item)
+    # if old
+    #   Cannon.encode io, ItemUpdate
+    #   Cannon.encode delta_state(old, item)
+    # else
+    Cannon.encode io, MySync::ChangeType::ItemAddition.value
+    Cannon.encode io, full
+    # end
+    # state.image[id] = full
+    state.last_updated[id] = actual
+  end
+  # deletion messages
+  state.last_updated.reject! do |id, time|
+    # state.image...
+    flag = time != actual
+    if flag
+      Cannon.encode io, id
+      Cannon.encode io, MySync::ChangeType::ItemDeletion.value
+    end
+    flag
+  end
+  Cannon.encode io, MySync::ItemID.new(0)
+end
 end

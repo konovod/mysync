@@ -47,16 +47,17 @@ class ClientPlayersList < MySync::ClientSyncList
   end
 end
 
-class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpdater)
+class ServerPlayersList < MySync::ServerSyncList
+  server_generics_crunch(Player, PlayerAdder, PlayerUpdater)
   getter all_players = [] of Player
   @uids = MySync::IDS.new
 
   def full_state(item)
-    FullState.new(item.name, item.hp)
+    PlayerAdder.new(item.name, item.hp)
   end
 
   def delta_state(old_state, item)
-    DeltaState.new(item.hp)
+    PlayerUpdater.new(item.hp)
   end
 
   def iterate(who, &block)
@@ -70,11 +71,6 @@ class ServerPlayersList < MySync::ServerSyncList(Player, PlayerAdder, PlayerUpda
   def delete_player(player)
     all_players.delete player
     @uids.recycle player.id
-  end
-
-  # fix for a https://github.com/crystal-lang/crystal/issues/4224
-  def generate_message(*args)
-    super(args)
   end
 end
 
