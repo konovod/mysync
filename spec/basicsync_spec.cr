@@ -178,3 +178,7 @@ it "process multiple connections" do
   us = (t*1000000.0 / N / N).to_i
   p "time per packet: #{us} us"
 end
+
+# cleanup to prevent disconnect messages in next specs
+udp_srv.disconnect_delay = 0.01.seconds
+sleep 0.25
