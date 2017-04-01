@@ -128,8 +128,7 @@ module MySync
       # process acks mask of our packets
       @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
-      decode_remote_sync
-      on_received_sync if most_recent # TODO add size field to skip decoding OoO packets?
+      decode_remote_sync # TODO add size field to skip decoding OoO packets?
 
       # now process async
       while @io_received.pos < @io_received.size
@@ -144,7 +143,11 @@ module MySync
         end
       end
       # now process syncronized lists
-      sync_lists.process_received(@io_received)
+      if most_recent
+        sync_lists.process_received(@io_received)
+        # and finally call callback
+        on_received_sync
+      end
     end
 
     def process_sending : Bytes
