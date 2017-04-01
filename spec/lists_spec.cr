@@ -129,14 +129,14 @@ end
 
 it "syncs adding in case of packets loss" do
   srv_list.new_player("test3", 99)
-  udp_cli.debug_loss = true
+  udp_srv.debug_loss = true
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   srv_list.new_player("test4", 99)
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 1
-  udp_cli.debug_loss = false
+  udp_srv.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 3
   one_exchange(cli, udp_cli)
@@ -148,15 +148,15 @@ it "syncs deleting in case of packets loss" do
   name = srv_list.all_players[0].name
   srv_list.delete_player(srv_list.all_players[0])
   cli_list.players[0].name.should eq name
-  udp_cli.debug_loss = true
+  udp_srv.debug_loss = true
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should eq name
-  udp_cli.debug_loss = false
+  udp_srv.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should eq name
-  # cli_list.fading_delay = 0.01.seconds
-  # sleep 0.1
-  # one_exchange(cli, udp_cli)
-  # cli_list.players[0].name.should_not eq name
+  cli_list.fading_delay = 0.01.seconds
+  sleep 0.1
+  one_exchange(cli, udp_cli)
+  cli_list.players[0].name.should_not eq name
 end

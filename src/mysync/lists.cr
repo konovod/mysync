@@ -30,7 +30,6 @@ module MySync
       @last_updated.reject! do |id, time|
         flag = actual - time > fading_delay
         if flag
-          p "fading!"
           item = @items.delete(id)
           item_removed(item) if item
         end
