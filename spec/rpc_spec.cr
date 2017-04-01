@@ -77,6 +77,7 @@ it "don't repeat old procedures" do
 end
 
 it "rpc without response with loses" do
+  SpecLogger.dump_events
   greeter.no_answer_without_response "test1"
   udp_cli.debug_loss = true
   5.times do
@@ -91,9 +92,26 @@ it "rpc without response with loses" do
   SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]
 end
 
+it "rpc without response with loses #2" do
+  SpecLogger.dump_events
+  greeter.no_answer_without_response "test1"
+  udp_srv.debug_loss = true
+  5.times do
+    one_exchange(cli, udp_cli)
+  end
+  sleep 0.2
+  greeter.no_answer_without_response "test2"
+  udp_srv.debug_loss = false
+  20.times do
+    one_exchange(cli, udp_cli)
+  end
+  SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]
+end
+
 it "rpc with response" do
   done = Channel(Nil).new
   udp_cli.debug_loss = true
+  udp_srv.debug_loss = true
   udp_cli.autosend_delay = 0.05.seconds
   spawn do
     greeter.greet("Alice").should eq "hello Alice"
@@ -105,5 +123,7 @@ it "rpc with response" do
   end
   sleep 0.2
   udp_cli.debug_loss = false
+  sleep 0.2
+  udp_srv.debug_loss = false
   done.receive
 end
