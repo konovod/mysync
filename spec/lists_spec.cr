@@ -48,7 +48,6 @@ class ClientPlayersList < MySync::ClientSyncList
 end
 
 class ServerPlayersList < MySync::ServerSyncList
-  server_generics_crunch(Player, PlayerAdder, PlayerUpdater)
   getter all_players = [] of Player
   @uids = MySync::IDS.new
 

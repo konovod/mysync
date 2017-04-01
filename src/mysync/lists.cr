@@ -40,11 +40,46 @@ module MySync
   #
   # from implementation it requires `full_state` and `delta_state` methods that serialize items
   abstract class ServerSyncList
-  abstract def generate_message(who : EndPoint, io : IO)
-  # abstract def priority : Int32 TODO: lists prioritization
-  # abstract def full_state(item : {{}}) : FullState
-  # abstract def delta_state(old_state : FullState, item : T) : DeltaState
-  # abstract def iterate(who : EndPoint, &block : T -> Nil)
+    abstract def generate_message(who : EndPoint, io : IO)
+
+    # abstract def priority : Int32 TODO: lists prioritization
+
+    abstract def full_state(item)
+    abstract def delta_state(old_state, item)
+    abstract def iterate(who : EndPoint, &block : _ -> Nil)
+
+    # TODO: sort according to time? total mechanism of overflow processing
+    def generate_message(who : MySync::EndPoint, io : IO)
+      state = who.sync_lists_serverside
+      actual = Time.now
+      # addition\update messages
+      iterate(who) do |item|
+        id = item.id
+        Cannon.encode io, id
+        # old = state.image[id]?
+        full = full_state(item)
+        # if old
+        #   Cannon.encode io, ItemUpdate
+        #   Cannon.encode delta_state(old, item)
+        # else
+        Cannon.encode io, MySync::ChangeType::ItemAddition.value
+        Cannon.encode io, full
+        # end
+        # state.image[id] = full
+        state.last_updated[id] = actual
+      end
+      # deletion messages
+      state.last_updated.reject! do |id, time|
+        # state.image...
+        flag = time != actual
+        if flag
+          Cannon.encode io, id
+          Cannon.encode io, MySync::ChangeType::ItemDeletion.value
+        end
+        flag
+      end
+      Cannon.encode io, MySync::ItemID.new(0)
+    end
   end
 
   class SyncListsManager
@@ -98,41 +133,4 @@ macro client_generics_crunch(typ, fullstate, deltastate)
       end
     end
   end
-end
-
-
-macro server_generics_crunch(typ, fullstate, deltastate)
-
-# TODO: sort according to time? total mechanism of overflow processing
-def generate_message(who : MySync::EndPoint, io : IO)
-  state = who.sync_lists_serverside
-  actual = Time.now
-  # addition\update messages
-  iterate(who) do |item|
-    id = item.id
-    Cannon.encode io, id
-    # old = state.image[id]?
-    full = full_state(item)
-    # if old
-    #   Cannon.encode io, ItemUpdate
-    #   Cannon.encode delta_state(old, item)
-    # else
-    Cannon.encode io, MySync::ChangeType::ItemAddition.value
-    Cannon.encode io, full
-    # end
-    # state.image[id] = full
-    state.last_updated[id] = actual
-  end
-  # deletion messages
-  state.last_updated.reject! do |id, time|
-    # state.image...
-    flag = time != actual
-    if flag
-      Cannon.encode io, id
-      Cannon.encode io, MySync::ChangeType::ItemDeletion.value
-    end
-    flag
-  end
-  Cannon.encode io, MySync::ItemID.new(0)
-end
 end
