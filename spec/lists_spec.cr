@@ -27,7 +27,7 @@ end
 #
 
 class ClientPlayersList < MySync::ClientSyncList
-  client_generics_crunch(Player, PlayerAdder, PlayerUpdater)
+  include MySync::SyncListData(Player, PlayerAdder, PlayerUpdater)
   getter players = [] of Player
 
   def item_added(id, data)

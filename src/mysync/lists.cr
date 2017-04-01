@@ -26,6 +26,37 @@ module MySync
 
   end
 
+  module SyncListData(T, FullState, DeltaState)
+    @items = Hash(MySync::ItemID, T).new
+
+    def process_received(io : IO)
+      while io.pos < io.size
+        id = Cannon.decode(io, MySync::ItemID)
+        break if id == 0
+        typ = MySync::ChangeType.new(Cannon.decode(io, UInt8))
+        case typ
+        when MySync::ChangeType::ItemAddition
+          full = Cannon.decode(io, FullState)
+          if old_item = @items[id]?
+            item_removed(old_item)
+          end
+          @items[id] = item_added(id, full)
+        when MySync::ChangeType::ItemUpdate
+          delta = Cannon.decode(io, DeltaState)
+          item = @items[id]?
+          if item
+            item_updated(item, delta)
+          else
+            p "ignoring failed delta" # TODO
+          end
+        when MySync::ChangeType::ItemDeletion
+          item = @items.delete(id)
+          item_removed(item) if item
+        end
+      end
+    end
+  end
+
   # class representing syncronized list of entities on server
   # part with connection data
   class SyncListEndpointSpecific
@@ -101,36 +132,6 @@ module MySync
 
     def generate_message(who, io : IO)
       @server_lists.each { |list| list.generate_message who, io }
-    end
-  end
-end
-
-macro client_generics_crunch(typ, fullstate, deltastate)
-  @items = Hash(MySync::ItemID, {{typ}}).new
-  def process_received(io : IO)
-    while io.pos < io.size
-      id = Cannon.decode(io, MySync::ItemID)
-      break if id == 0
-      typ = MySync::ChangeType.new(Cannon.decode(io, UInt8))
-      case typ
-      when MySync::ChangeType::ItemAddition
-        full = Cannon.decode(io, {{fullstate}})
-        if old_item = @items[id]?
-          item_removed(old_item)
-        end
-        @items[id] = item_added(id, full)
-      when MySync::ChangeType::ItemUpdate
-        delta = Cannon.decode(io, {{deltastate}})
-        item = @items[id]?
-        if item
-          item_updated(item, delta)
-        else
-          p "ignoring failed delta" # TODO
-        end
-      when MySync::ChangeType::ItemDeletion
-        item = @items.delete(id)
-        item_removed(item) if item
-      end
     end
   end
 end
