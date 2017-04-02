@@ -78,7 +78,7 @@ class TestServer
   property state = TestServerOutput.new
   getter test_endpoint : MySync::EndPoint?
 
-  def new_endpoint(authdata : Bytes) : {endpoint: MySync::EndPoint, response: Bytes}?
+  def new_endpoint(authdata : Bytes) : {endpoint: MySync::EndPoint?, response: Bytes}?
     username = String.new(authdata)
     SpecLogger.log_srv "logged in: #{username}"
     userid = 2

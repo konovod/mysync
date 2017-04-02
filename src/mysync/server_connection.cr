@@ -67,17 +67,24 @@ module MySync
                       # additional: @received.slice[0, Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
       tuple = @endpoint_factory.new_endpoint(@received_decrypted.slice)
-      return unless tuple
-      @symmetric_key.reroll
-      @endpoint = tuple[:endpoint]
-      # now init common data
-      tuple[:endpoint].rpc_connection = CannonInterface.new tuple[:endpoint], @endpoint_factory.rpc_manager
-      tuple[:endpoint].sync_lists = @endpoint_factory.sync_lists
+      if point = tuple[:endpoint] # successful auth
+        @symmetric_key.reroll
+        @endpoint = point
+        # now init common data
+        point.rpc_connection = CannonInterface.new point, @endpoint_factory.rpc_manager
+        point.sync_lists = @endpoint_factory.sync_lists
+        response = Bytes.new(1 + Crypto::SymmetricKey.size + tuple[:response].size)
+        response[0] = 1u8
+        response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
+        response[1 + Crypto::SymmetricKey.size, tuple[:response].size].copy_from tuple[:response]
+        send_response response, is_login: true
+      else # not successful, with response
+        response = Bytes.new(1 + tuple[:response].size)
+        response[0] = 0u8
+        response[1, tuple[:response].size].copy_from tuple[:response]
+        send_response tuple[:response], is_login: true
+      end
       # and send response
-      response = Bytes.new(Crypto::SymmetricKey.size + tuple[:response].size)
-      response.copy_from @symmetric_key.to_slice
-      response[Crypto::SymmetricKey.size, tuple[:response].size].copy_from tuple[:response]
-      send_response response, is_login: true
     end
 
     private def send_response(data, *, is_login : Bool)

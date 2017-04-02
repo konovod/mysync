@@ -11,7 +11,7 @@ module MySync
     getter rpc_manager = Cannon::Rpc::Manager.new
     getter sync_lists = SyncListsManager.new
 
-    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint, response: Bytes}?
+    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint?, response: Bytes}
     abstract def on_connecting(ip : Address)
     abstract def on_disconnecting(ip : Address, ex : Exception?)
   end

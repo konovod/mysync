@@ -144,14 +144,20 @@ module MySync
       return if package.size < Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @login_key, input: package, output: @received_decrypted.slice)
-      # all is fine, copy symmetric_key and data to output and start listening
-      @login_key.reroll
-      @symmetric_key.to_slice.copy_from @received_decrypted.slice[0, Crypto::SymmetricKey.size]
-      data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size)
-      data.copy_from @received_decrypted.slice[Crypto::SymmetricKey.size, data.size]
-      @last_response = Time.now
-      @logged = LoginState::LoggedIn
-      @endpoint.reset
+      if @received_decrypted.slice[0] == 1
+        # all is fine, copy symmetric_key and data to output and start listening
+        @login_key.reroll
+        @symmetric_key.to_slice.copy_from @received_decrypted.slice[1, Crypto::SymmetricKey.size]
+        data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size - 1)
+        data.copy_from @received_decrypted.slice[1 + Crypto::SymmetricKey.size, data.size]
+        @last_response = Time.now
+        @logged = LoginState::LoggedIn
+        @endpoint.reset
+      else
+        # auth failed with a reason
+        data = Bytes.new(@received_decrypted.size - 1)
+        data.copy_from @received_decrypted.slice[1, data.size]
+      end
       @login_complete.send data
     end
 
