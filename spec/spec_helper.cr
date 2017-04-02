@@ -80,11 +80,16 @@ class TestServer
 
   def new_endpoint(authdata : Bytes) : {endpoint: MySync::EndPoint?, response: Bytes}?
     username = String.new(authdata)
-    SpecLogger.log_srv "logged in: #{username}"
-    userid = 2
-    point = TestUserContext.new(self, userid, username)
-    @test_endpoint = point
-    {endpoint: point, response: "you_can_pass".to_slice}
+    if username == "INVALID"
+      SpecLogger.log_srv "failed to log in: #{username}"
+      {endpoint: nil, response: "you_won't_pass".to_slice}
+    else
+      SpecLogger.log_srv "logged in: #{username}"
+      userid = 2
+      point = TestUserContext.new(self, userid, username)
+      @test_endpoint = point
+      {endpoint: point, response: "you_can_pass".to_slice}
+    end
   end
 
   def on_connecting(ip : Socket::IPAddress)

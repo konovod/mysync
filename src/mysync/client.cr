@@ -6,7 +6,7 @@ require "./package"
 require "./rpc"
 
 module MySync
-  enum LoginState
+  enum AuthState
     NoData
     NotLoggedIn
     LoggedIn
@@ -15,6 +15,7 @@ module MySync
   class UDPGameClient
     getter socket
     getter rpc_manager
+    getter auth_state
     property debug_loss = false
     property autosend_delay : Time::Span?
     property disconnect_timeout : Time::Span
@@ -36,7 +37,7 @@ module MySync
       @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new
       @login_complete = Channel(Bytes).new
-      @logged = LoginState::NoData
+      @auth_state = AuthState::NoData
       @autosend_delay = nil
       @should_send = Channel(Nil).new
       @disconnect_timeout = 1.seconds
@@ -68,10 +69,10 @@ module MySync
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
         package = @raw_received[4, size - 4]
-        case @logged
-        when LoginState::NotLoggedIn
+        case @auth_state
+        when AuthState::NotLoggedIn
           login_received(package) if @received_header.value == RIGHT_LOGIN_SIGN
-        when LoginState::LoggedIn
+        when AuthState::LoggedIn
           package_received (package) if @received_header.value == RIGHT_SIGN
         else
           # ignore
@@ -82,11 +83,11 @@ module MySync
     private def sending_fiber
       loop do
         @should_send.receive
-        @logged = LoginState::NotLoggedIn if Time.now - @last_response > @disconnect_timeout
-        case @logged
-        when LoginState::NotLoggedIn
+        @auth_state = AuthState::NotLoggedIn if Time.now - @last_response > @disconnect_timeout
+        case @auth_state
+        when AuthState::NotLoggedIn
           send_login
-        when LoginState::LoggedIn
+        when AuthState::LoggedIn
           send_data
         end
       end
@@ -110,7 +111,7 @@ module MySync
     def login(public_key : Crypto::PublicKey, authdata : Bytes) : Nil
       @server_key = public_key
       @login_data = authdata
-      @logged = LoginState::NotLoggedIn
+      @auth_state = AuthState::NotLoggedIn
     end
 
     def wait_login : Bytes
@@ -151,7 +152,7 @@ module MySync
         data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size - 1)
         data.copy_from @received_decrypted.slice[1 + Crypto::SymmetricKey.size, data.size]
         @last_response = Time.now
-        @logged = LoginState::LoggedIn
+        @auth_state = AuthState::LoggedIn
         @endpoint.reset
       else
         # auth failed with a reason

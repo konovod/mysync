@@ -82,7 +82,7 @@ module MySync
         response = Bytes.new(1 + tuple[:response].size)
         response[0] = 0u8
         response[1, tuple[:response].size].copy_from tuple[:response]
-        send_response tuple[:response], is_login: true
+        send_response response, is_login: true
       end
       # and send response
     end

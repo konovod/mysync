@@ -154,6 +154,14 @@ it "works with restarted client on same port" do
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another2", "CLIENT: sending", "CLIENT: received"]
 end
 
+it "rejects wrong login" do
+  udp_cli.login(public_key, "INVALID".to_slice)
+  answer = one_login(udp_cli)
+  String.new(answer.not_nil!).should eq "you_won't_pass"
+  udp_cli.auth_state.should eq MySync::AuthState::NotLoggedIn
+  SpecLogger.dump_events.should eq ["SERVER: failed to log in: INVALID"]
+end
+
 N = 20
 it "process multiple connections" do
   udp_srv.disconnect_delay = 1.seconds
