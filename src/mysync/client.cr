@@ -18,6 +18,7 @@ module MySync
     getter auth_state
     property debug_loss = false
     property autosend_delay : Time::Span?
+    property autologin_delay : Time::Span?
     property disconnect_timeout : Time::Span
     @server_key : Crypto::PublicKey?
 
@@ -39,6 +40,7 @@ module MySync
       @login_complete = Channel(Bytes).new
       @auth_state = AuthState::NoData
       @autosend_delay = nil
+      @autologin_delay = nil
       @should_send = Channel(Nil).new
       @disconnect_timeout = 1.seconds
       @last_response = Time.now
@@ -93,9 +95,18 @@ module MySync
       end
     end
 
+    private def get_autodelay
+      case @auth_state
+      when AuthState::NotLoggedIn
+        @autologin_delay
+      when AuthState::LoggedIn
+        @autosend_delay
+      end
+    end
+
     private def auto_sending_fiber
       loop do
-        if delay = @autosend_delay
+        if delay = get_autodelay
           @should_send.send nil
           sleep delay
         else
@@ -115,7 +126,8 @@ module MySync
     end
 
     def wait_login : Bytes
-      raise "autosend_delay should be set" unless @autosend_delay
+      raise "autologin_delay should be set" unless @autologin_delay
+      @auth_state = MySync::AuthState::NotLoggedIn
       @login_complete.receive
     end
 

@@ -171,7 +171,6 @@ it "process multiple connections" do
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
     audp_cli.login(public_key, Bytes.new(0))
     one_login(audp_cli)
-    # audp_cli.autosend_delay = 0.05.seconds
     acli.benchmark = 1000
     acli.benchmark_udp = audp_cli
     clients << acli

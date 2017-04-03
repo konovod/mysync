@@ -113,6 +113,7 @@ it "rpc with response" do
   udp_cli.debug_loss = true
   udp_srv.debug_loss = true
   udp_cli.autosend_delay = 0.05.seconds
+  udp_cli.autologin_delay = 0.05.seconds
   spawn do
     greeter.greet("Alice").should eq "hello Alice"
     start = Time.now
