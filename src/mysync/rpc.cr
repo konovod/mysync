@@ -8,6 +8,7 @@ module MySync
   # mostly copied from cannon/tcp_connection. optimize later?
   class CannonInterface < Cannon::Rpc::Connection
     getter manager
+    getter endpoint
 
     def initialize(@endpoint : EndPoint, amanager : Cannon::Rpc::Manager)
       super(amanager)
