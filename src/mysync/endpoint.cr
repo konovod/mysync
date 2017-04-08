@@ -41,7 +41,7 @@ module MySync
   abstract class EndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
-    getter sync_lists_serverside = SyncListEndpointSpecific.new
+    getter sync_lists_serverside
     property! rpc_connection : CannonInterface
     property! sync_lists : SyncListsManager
 
@@ -53,6 +53,7 @@ module MySync
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
       @remote_message_acks = CircularAckBuffer(RemoteMessage).new
+      @sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
     end
 
     abstract def on_received_sync

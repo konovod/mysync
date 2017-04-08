@@ -91,13 +91,18 @@ module MySync
 
     # abstract def priority : Int32 TODO: lists prioritization
 
-    abstract def full_state(item)
-    abstract def delta_state(old_state, item)
-    abstract def iterate(who : EndPoint, &block : _ -> Nil)
+  end
+
+  module ServerSyncListImplementation(T, FullState, DeltaState)
+    abstract def full_state(item : T) : FullState
+    abstract def delta_state(old_state : FullState, item : T) : DeltaState
+    abstract def iterate(who : EndPoint, &block : T -> Nil)
 
     # TODO: sort according to time? total mechanism of overflow processing
     def generate_message(who : MySync::EndPoint, io : IO)
-      state = who.sync_lists_serverside
+      state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
+        who.sync_lists_serverside[self] = it
+      end
       actual = Time.now
       # addition\update messages
       iterate(who) do |item|
