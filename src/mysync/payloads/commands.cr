@@ -93,11 +93,9 @@ module MySync
 
     def acked(cmd)
       @commands.delete cmd
-      # p "acked, now #{@commands.size}"
     end
 
     def each_applicable(time : Time, &block)
-      # p "yielding #{(@commands.count { |cmd| time - cmd.sent >= RESEND_TIME })} of #{@commands.size}"
       @commands.each do |cmd|
         yield(cmd) if time - cmd.sent >= RESEND_TIME
       end

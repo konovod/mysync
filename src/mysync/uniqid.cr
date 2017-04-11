@@ -10,7 +10,7 @@ module MySync
     def generate
       started = @counter
       @counter += 1
-      while @counter == 0 || @used.include?(@counter)
+      while @counter == 0 || @used.includes?(@counter)
         @counter += 1
         raise "can't find free id" if @counter == started
       end

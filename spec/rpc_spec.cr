@@ -179,8 +179,10 @@ end
 
 # how to expect raising in another fiber
 pending "raises when message is too long" do
-  expect_raises(Exception) do
-    greeter.greet_without_response(String.new(Bytes.new(10000)))
-    one_exchange(cli, udp_cli)
-  end
+  # expect_raises(Exception) do
+  SpecLogger.dump_events
+  greeter.greet_without_response(String.new(Bytes.new(10000)))
+  one_exchange(cli, udp_cli)
+  p SpecLogger.dump_events
+  # end
 end

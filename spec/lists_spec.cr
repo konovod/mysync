@@ -119,7 +119,7 @@ class ServerBulletsList < MySync::ServerSyncList
     @all_bullets.each { |pl| yield(pl) }
   end
 
-  def new_bullet(name, n)
+  def new_bullet(n)
     Bullet.new(@uids.generate).tap do |pl|
       pl.typ = n
       pl.x = n
@@ -225,12 +225,12 @@ it "syncs deleting in case of packets loss" do
 end
 
 it "syncing a second list" do
-  srv_list2.new_bullet("test", 99)
+  srv_list2.new_bullet(99)
   one_exchange(cli, udp_cli)
   cli_list2.bullets.size.should eq 1
   cli_list2.bullets[0].typ.should eq 99
   cli_list2.bullets[0].x.should eq 99
-  srv_list2.new_bullet("test2", 98)
+  srv_list2.new_bullet(98)
   one_exchange(cli, udp_cli)
   cli_list2.bullets.size.should eq 2
   cli_list2.bullets[0].typ.should eq 99
@@ -241,4 +241,12 @@ it "syncing a second list" do
   cli_list2.bullets.size.should eq 1
   cli_list2.bullets[0].typ.should eq 98
   cli_list2.bullets[0].y.should eq 98
+end
+
+pending "don't crash on large lists" do
+  100.times { |i| srv_list.new_player("load#{i}", 99) }
+  100.times { |i| srv_list2.new_bullet(-i) }
+  one_exchange(cli, udp_cli)
+  pp cli_list.players.size
+  pp cli_list2.bullets.size
 end
