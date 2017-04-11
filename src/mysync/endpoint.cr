@@ -37,7 +37,6 @@ module MySync
     ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
 
     getter requested_disconnect : Bool
-    getter cmd_buffer = CommandBuffer.new
 
     def initialize
       super
@@ -94,7 +93,8 @@ module MySync
 
     private def packet_acked(data : LocalAckData)
       @ping_time.add(Time.now - data.sent)
-      data.commands.each { |cmd| @cmd_buffer.acked cmd }
+      acked_asyncs(data)
+      acked_lists(data)
     end
 
     def process_receive(data : Bytes) : Nil
@@ -119,10 +119,10 @@ module MySync
       @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
       # reading payloads
-      receive_sync # TODO add size field to skip decoding OoO packets?
-      receive_asyncs
+      receive_sync(@io_received) # TODO add size field to skip decoding OoO packets?
+      receive_asyncs(@io_received)
       if most_recent
-        receive_lists
+        receive_lists(@io_received)
         # and finally call callback
         on_received_package
       end
@@ -139,10 +139,10 @@ module MySync
 
       # sending payloads
       before_sending_package
-      send_sync
+      send_sync(@io_tosend)
       # TODO - check if too big and split
-      send_asyncs(cur_commands)
-      send_lists
+      send_asyncs(@io_tosend, cur_commands)
+      send_lists(@io_tosend)
 
       return @io_tosend.to_slice
     end

@@ -11,6 +11,7 @@ module MySync
     ackrecord RemoteMessage
 
     property! rpc_connection : CannonInterface
+    getter cmd_buffer = CommandBuffer.new
     # TODO - it's still used in reset
     @remote_message_acks = CircularAckBuffer(RemoteMessage).new
 
@@ -20,13 +21,17 @@ module MySync
       end
     end
 
-    def receive_asyncs
-      while @io_received.pos < @io_received.size
-        id = @io_received.read_bytes(Sequence)
+    def acked_asyncs(data : LocalAckData)
+      data.commands.each { |cmd| @cmd_buffer.acked cmd }
+    end
+
+    def receive_asyncs(io)
+      while io.pos < io.size
+        id = io.read_bytes(Sequence)
         break if id == 0
-        asize = @io_received.read_bytes(CmdSize)
+        asize = io.read_bytes(CmdSize)
         if @remote_message_acks.passed(id)
-          @io_received.pos += asize
+          io.pos += asize
         else
           @remote_message_acks.apply_single id
           command_received
@@ -34,15 +39,15 @@ module MySync
       end
     end
 
-    def send_asyncs(cur_commands)
-      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - sizeof(CmdID) - @io_tosend.pos, Time.now) do |cmd|
-        @io_tosend.write_bytes(cmd.id)
-        @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
-        @io_tosend.write(cmd.data.to_slice)
+    def send_asyncs(io, cur_commands)
+      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - sizeof(CmdID) - io.pos, Time.now) do |cmd|
+        io.write_bytes(cmd.id)
+        io.write_bytes(CmdSize.new(cmd.data.size))
+        io.write(cmd.data.to_slice)
         cur_commands << cmd
         true
       end
-      @io_tosend.write_bytes(CmdID.new(0))
+      io.write_bytes(CmdID.new(0))
     end
   end
 

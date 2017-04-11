@@ -9,12 +9,16 @@ module MySync
     getter sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
     property! sync_lists : SyncListsManager
 
-    def receive_lists
-      sync_lists.process_received(@io_received)
+    def receive_lists(io)
+      sync_lists.process_received(io)
     end
 
-    def send_lists
-      sync_lists.generate_message(self, @io_tosend)
+    def acked_lists(data : LocalAckData)
+      # TODO
+    end
+
+    def send_lists(io)
+      sync_lists.generate_message(self, io)
     end
   end
 
