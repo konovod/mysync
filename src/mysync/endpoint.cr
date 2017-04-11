@@ -36,13 +36,11 @@ module MySync
   # for remote we need only the fact that it passed
   ackrecord RemoteAckData
   ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
-  ackrecord RemoteMessage
 
   abstract class EndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
     getter sync_lists_serverside
-    property! rpc_connection : CannonInterface
     property! sync_lists : SyncListsManager
 
     def initialize
@@ -52,7 +50,6 @@ module MySync
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
-      @remote_message_acks = CircularAckBuffer(RemoteMessage).new
       @sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
     end
 
@@ -102,12 +99,6 @@ module MySync
       data.commands.each { |cmd| @cmd_buffer.acked cmd }
     end
 
-    def command_received
-      if it = @rpc_connection
-        it.handle_command @io_received
-      end
-    end
-
     def process_receive(data : Bytes) : Nil
       @io_received.reset_to(data)
       header = Cannon.decode @io_received, PacketHeader
@@ -132,17 +123,7 @@ module MySync
       decode_remote_sync # TODO add size field to skip decoding OoO packets?
 
       # now process async
-      while @io_received.pos < @io_received.size
-        id = @io_received.read_bytes(Sequence)
-        break if id == 0
-        asize = @io_received.read_bytes(CmdSize)
-        if @remote_message_acks.passed(id)
-          @io_received.pos += asize
-        else
-          @remote_message_acks.apply_single id
-          command_received
-        end
-      end
+      receive_asyncs
       # now process syncronized lists
       if most_recent
         sync_lists.process_received(@io_received)
@@ -161,16 +142,8 @@ module MySync
       Cannon.encode @io_tosend, header
       before_sending_sync
       send_local_sync
-      # process async
       # TODO - check if too big and split
-      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - sizeof(CmdID) - @io_tosend.pos, Time.now) do |cmd|
-        @io_tosend.write_bytes(cmd.id)
-        @io_tosend.write_bytes(CmdSize.new(cmd.data.size))
-        @io_tosend.write(cmd.data.to_slice)
-        cur_commands << cmd
-        true
-      end
-      @io_tosend.write_bytes(CmdID.new(0))
+      send_asyncs(cur_commands)
       # process syncronized lists
       sync_lists.generate_message(self, @io_tosend)
       return @io_tosend.to_slice
