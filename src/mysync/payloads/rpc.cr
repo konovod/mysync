@@ -5,7 +5,7 @@ require "./commands"
 module MySync
   private alias ReceiveChannel = Channel(IO::Memory)
 
-  # mostly copied from cannon/tcp_connection. optimize later?
+  # TODO mostly copied from cannon/tcp_connection. optimize later?
   class CannonInterface < Cannon::Rpc::Connection
     getter manager
     getter endpoint

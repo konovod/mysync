@@ -7,6 +7,7 @@ module MySync
     getter rpc_manager = Cannon::Rpc::Manager.new
   end
 
+  # TODO - split
   abstract class EndPoint
     ackrecord RemoteMessage
 

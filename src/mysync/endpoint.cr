@@ -45,6 +45,8 @@ module MySync
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
+      @tosend_async = IO::Memory.new(MAX_PACKAGE_SIZE)
+      @tosend_lists = IO::Memory.new(MAX_PACKAGE_SIZE)
     end
 
     def on_received_package
@@ -139,10 +141,25 @@ module MySync
 
       # sending payloads
       before_sending_package
+      # sync data are sent always
       send_sync(@io_tosend)
-      # TODO - check if too big and split
-      send_asyncs(@io_tosend, cur_commands)
-      send_lists(@io_tosend)
+      remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
+
+      @tosend_async.rewind
+      send_asyncs(@tosend_async, cur_commands)
+      size_asyncs = @tosend_async.pos
+
+      @tosend_lists.rewind
+      send_lists(@tosend_lists)
+      size_lists = @tosend_lists.pos
+
+      # if all data fit - no problems, just copy all data
+      if remaining >= size_asyncs + size_lists
+        @io_tosend.write(@tosend_async.to_slice[0, size_asyncs])
+        @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
+      else
+        raise "size overflow: sync=#{@io_tosend.pos}, async=#{size_asyncs}, lists={size_lists}"
+      end
 
       return @io_tosend.to_slice
     end
