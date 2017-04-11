@@ -144,6 +144,7 @@ module MySync
       # sync data are sent always
       send_sync(@io_tosend)
       remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
+      raise "sync data too long: #{@io_tosend.pos}" if remaining < 0
 
       @tosend_async.rewind
       firstcmd, firstsize = send_asyncs(@tosend_async, cur_commands)
@@ -153,12 +154,14 @@ module MySync
       send_lists(@tosend_lists)
       size_lists = @tosend_lists.pos
 
+      # total fail, sync data too long
       # if all data fit - no problems, just copy all data
       if remaining >= size_asyncs + size_lists
         @io_tosend.write(@tosend_async.to_slice[0, size_asyncs])
         @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
-        # and mark all asyncs sas sent
+        # and mark all data as sent
         cur_commands.each { |cmd| cmd.sent = Time.now }
+        sync_lists.full_message_accepted(self)
       else
         # now we should shrink. first step is to limit asyncs to one command
         if firstcmd
@@ -168,11 +171,15 @@ module MySync
           firstcmd.sent = Time.now
           remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
         end
-        # check again size for lists
-        if remaining >= size_lists
+        # check if we still should shrink for lists
+        if size_lists > 0
+          if remaining >= size_lists
+            send_lists_partial(@tosend_lists, remaining, 1.0 * size_lists / remaining)
+            size_lists = @tosend_lists.pos
+          else
+            sync_lists.full_message_accepted(self)
+          end
           @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
-        else
-          raise "size overflow: sync=#{@io_tosend.pos}, async=#{size_asyncs}, lists=#{size_lists}"
         end
       end
 

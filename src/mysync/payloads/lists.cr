@@ -20,6 +20,10 @@ module MySync
     def send_lists(io)
       sync_lists.generate_message(self, io)
     end
+
+    def send_lists_partial(io, max_size, rate)
+      sync_lists.generate_message_partial(self, io, max_size, rate)
+    end
   end
 
   class ListItem
@@ -99,6 +103,8 @@ module MySync
   class SyncListEndpointSpecific
     # @image = Hash(ItemID, FullState).new TODO - lol, system is broken again
     getter last_updated = Hash(ItemID, Time).new
+    getter cur_updated = Set(ItemID).new
+    getter cur_deleted = Set(ItemID).new
   end
 
   # class representing syncronized list of entities on server
@@ -109,6 +115,7 @@ module MySync
   # from implementation it requires `full_state` and `delta_state` methods that serialize items
   abstract class ServerSyncList
     abstract def generate_message(who : EndPoint, io : IO)
+    abstract def generate_message_partial(who : EndPoint, io : IO, max_size : Int32, rate : Float64)
 
     # abstract def priority : Int32 TODO: lists prioritization
 
@@ -120,12 +127,20 @@ module MySync
     abstract def iterate(who : EndPoint, &block : T -> Nil)
 
     # TODO: sort according to time? total mechanism of overflow processing
+    def full_message_accepted(who : MySync::EndPoint)
+      state = who.sync_lists_serverside[self]
+      actual = Time.now
+      state.last_updated.reject! { |item| state.cur_deleted.includes? item }
+      state.cur_updated.each { |item| state.last_updated[item] = actual }
+    end
+
     def generate_message(who : MySync::EndPoint, io : IO)
       state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
         who.sync_lists_serverside[self] = it
       end
       actual = Time.now
       # addition\update messages
+      state.cur_updated.clear
       iterate(who) do |item|
         id = item.id
         Cannon.encode io, id
@@ -139,18 +154,22 @@ module MySync
         Cannon.encode io, full
         # end
         # state.image[id] = full
-        state.last_updated[id] = actual
+        # state.last_updated[id] = actual
+        state.cur_updated << item.id
       end
       # deletion messages
-      state.last_updated.reject! do |id, time|
+      state.cur_deleted.clear
+      state.last_updated.each do |id, time|
         # state.image...
-        flag = time != actual
-        if flag
-          Cannon.encode io, id
-          Cannon.encode io, MySync::ChangeType::ItemDeletion.value
-        end
-        flag
+        next if state.cur_updated.includes? id
+        Cannon.encode io, id
+        Cannon.encode io, MySync::ChangeType::ItemDeletion.value
+        state.cur_deleted << id
       end
+      Cannon.encode io, MySync::ItemID.new(0)
+    end
+
+    def generate_message_partial(who : EndPoint, io : IO, max_size : Int32, rate : Float64)
       Cannon.encode io, MySync::ItemID.new(0)
     end
   end
@@ -174,6 +193,17 @@ module MySync
 
     def generate_message(who, io : IO)
       @server_lists.each { |list| list.generate_message who, io }
+    end
+
+    def full_message_accepted(who)
+      @server_lists.each { |list| list.full_message_accepted(who) }
+    end
+
+    def generate_message_partial(who, io : IO, max_size, rate)
+      # priorities would go here
+      chunk = max_size / @server_lists.size - 1
+      return if chunk < 2
+      @server_lists.each { |list| list.generate_message_partial who, io, chunk, rate*0.25 }
     end
   end
 end

@@ -243,10 +243,12 @@ it "syncing a second list" do
   cli_list2.bullets[0].y.should eq 98
 end
 
-pending "don't crash on large lists" do
+it "don't crash on large lists" do
+  was_pl = cli_list.players.size
+  was_bul = cli_list2.bullets.size
   100.times { |i| srv_list.new_player("load#{i}", 99) }
   100.times { |i| srv_list2.new_bullet(-i) }
   one_exchange(cli, udp_cli)
-  pp cli_list.players.size
-  pp cli_list2.bullets.size
+  pp cli_list.players.size - was_pl
+  pp cli_list2.bullets.size - was_bul
 end
