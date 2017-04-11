@@ -2,6 +2,8 @@
 
 module MySync
   abstract class EndPoint
+    abstract def receive_sync
+    abstract def send_sync
   end
 end
 

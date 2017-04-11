@@ -9,9 +9,6 @@ require "./payloads/sync"
 
 module MySync
   module EndPointFactory
-    getter rpc_manager = Cannon::Rpc::Manager.new
-    getter sync_lists = SyncListsManager.new
-
     abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint?, response: Bytes}
     abstract def on_connecting(ip : Address)
     abstract def on_disconnecting(ip : Address, ex : Exception?)
@@ -35,14 +32,12 @@ module MySync
 
   # for our packets we save a time to measure ping
   # for remote we need only the fact that it passed
-  ackrecord RemoteAckData
-  ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
+  abstract class EndPoint
+    ackrecord RemoteAckData
+    ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
 
-  class EndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
-    getter sync_lists_serverside
-    property! sync_lists : SyncListsManager
 
     def initialize
       super
@@ -51,7 +46,6 @@ module MySync
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
       @remote_acks = CircularAckBuffer(RemoteAckData).new
       @local_acks = CircularAckBuffer(LocalAckData).new
-      @sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
     end
 
     def on_received_package
@@ -128,7 +122,7 @@ module MySync
       receive_sync # TODO add size field to skip decoding OoO packets?
       receive_asyncs
       if most_recent
-        sync_lists.process_received(@io_received)
+        receive_lists
         # and finally call callback
         on_received_package
       end
@@ -148,7 +142,7 @@ module MySync
       send_sync
       # TODO - check if too big and split
       send_asyncs(cur_commands)
-      sync_lists.generate_message(self, @io_tosend)
+      send_lists
 
       return @io_tosend.to_slice
     end

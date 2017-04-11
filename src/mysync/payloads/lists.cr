@@ -1,6 +1,23 @@
 require "../uniqid"
 
 module MySync
+  module EndPointFactory
+    getter sync_lists = SyncListsManager.new
+  end
+
+  abstract class EndPoint
+    getter sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
+    property! sync_lists : SyncListsManager
+
+    def receive_lists
+      sync_lists.process_received(@io_received)
+    end
+
+    def send_lists
+      sync_lists.generate_message(self, @io_tosend)
+    end
+  end
+
   class ListItem
     property id : ItemID
 

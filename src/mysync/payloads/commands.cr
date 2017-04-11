@@ -3,9 +3,14 @@ require "../circular"
 require "../endpoint_types"
 
 module MySync
+  module EndPointFactory
+    getter rpc_manager = Cannon::Rpc::Manager.new
+  end
+
   abstract class EndPoint
-    property! rpc_connection : CannonInterface
     ackrecord RemoteMessage
+
+    property! rpc_connection : CannonInterface
     # TODO - it's still used in reset
     @remote_message_acks = CircularAckBuffer(RemoteMessage).new
 
