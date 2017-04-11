@@ -2,18 +2,24 @@ module MySync
   alias ItemID = UInt16
 
   # TODO - specs
-  # TODO - better implementation, this one is broken
   # TODO - better name, lol?
   class IDS
     @counter = ItemID.new(0)
+    @used = Set(ItemID).new
 
     def generate
+      started = @counter
       @counter += 1
-      @counter += 1 if @counter == 0
+      while @counter == 0 || @used.include?(@counter)
+        @counter += 1
+        raise "can't find free id" if @counter == started
+      end
+      @used << @counter
       return @counter
     end
 
     def recycle(id : ItemID)
+      @used.delete @counter
     end
   end
 end
