@@ -58,12 +58,12 @@ class TestUserContext < MySync::EndPoint
     SpecLogger.log_srv "user disconnected: #{@username}"
   end
 
-  def on_received_sync
+  def on_received_package
     SpecLogger.log_srv "received" if @verbose
     @server.state.all_data[@remote_sync.num] = @remote_sync.data if @remote_sync.num >= 0
   end
 
-  def before_sending_sync
+  def before_sending_package
     SpecLogger.log_srv "sending" if @verbose
     @local_sync = @server.state
   end
@@ -118,7 +118,7 @@ class TestClientEndpoint < MySync::EndPoint
   property wait_answer : Channel(Nil)?
   property verbose : Bool = true
 
-  def on_received_sync
+  def on_received_package
     SpecLogger.log_cli "received" if @verbose
     if @benchmark > 0
       @benchmark -= 1
@@ -132,7 +132,7 @@ class TestClientEndpoint < MySync::EndPoint
     end
   end
 
-  def before_sending_sync
+  def before_sending_package
     SpecLogger.log_cli "sending" if @verbose
   end
 end

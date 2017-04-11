@@ -5,6 +5,7 @@ require "./stats"
 require "./payloads/commands"
 require "./payloads/rpc"
 require "./payloads/lists"
+require "./payloads/sync"
 
 module MySync
   module EndPointFactory
@@ -37,7 +38,7 @@ module MySync
   ackrecord RemoteAckData
   ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
 
-  abstract class EndPoint
+  class EndPoint
     getter requested_disconnect : Bool
     getter cmd_buffer = CommandBuffer.new
     getter sync_lists_serverside
@@ -53,8 +54,11 @@ module MySync
       @sync_lists_serverside = Hash(ServerSyncList, SyncListEndpointSpecific).new
     end
 
-    abstract def on_received_sync
-    abstract def before_sending_sync
+    def on_received_package
+    end
+
+    def before_sending_package
+    end
 
     def on_disconnect
     end
@@ -120,15 +124,13 @@ module MySync
       # process acks mask of our packets
       @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
 
-      decode_remote_sync # TODO add size field to skip decoding OoO packets?
-
-      # now process async
+      # reading payloads
+      receive_sync # TODO add size field to skip decoding OoO packets?
       receive_asyncs
-      # now process syncronized lists
       if most_recent
         sync_lists.process_received(@io_received)
         # and finally call callback
-        on_received_sync
+        on_received_package
       end
     end
 
@@ -140,27 +142,15 @@ module MySync
       @local_acks[self.local_seq] = LocalAckData.new(false, Time.now, cur_commands)
       header = PacketHeader.new(self.local_seq, self.remote_seq, @remote_acks.passed_mask)
       Cannon.encode @io_tosend, header
-      before_sending_sync
-      send_local_sync
+
+      # sending payloads
+      before_sending_package
+      send_sync
       # TODO - check if too big and split
       send_asyncs(cur_commands)
-      # process syncronized lists
       sync_lists.generate_message(self, @io_tosend)
+
       return @io_tosend.to_slice
     end
-  end
-end
-
-macro set_local_sync(typ)
-  property local_sync : {{typ}} = {{typ}}.new
-  def send_local_sync
-    Cannon.encode @io_tosend, @local_sync
-  end
-end
-
-macro set_remote_sync(typ)
-  property remote_sync : {{typ}} = {{typ}}.new
-  def decode_remote_sync
-    @remote_sync = Cannon.decode @io_received, typeof(@remote_sync)
   end
 end
