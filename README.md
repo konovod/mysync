@@ -18,7 +18,7 @@ dependencies:
 require "mysync"
 ```
 
-TODO: Write usage instructions here
+see `spec` dir for usage examples. Sample game will be opensourced at some point
 
 ## Development
 
@@ -26,7 +26,7 @@ TODO: Write development instructions here
 
 ## Contributing
 
-1. Fork it ( https://github.com/[your-github-name]/mysync/fork )
+1. Fork it ( https://github.com/konovod/mysync/fork )
 2. Create your feature branch (git checkout -b my-new-feature)
 3. Commit your changes (git commit -am 'Add some feature')
 4. Push to the branch (git push origin my-new-feature)
@@ -34,4 +34,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [[your-github-name]](https://github.com/[your-github-name]) Your Name - creator, maintainer
+- kipar(https://github.com/konovod) Andrey Konovod - creator, maintainer
