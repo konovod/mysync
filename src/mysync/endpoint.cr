@@ -146,7 +146,7 @@ module MySync
       remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
 
       @tosend_async.rewind
-      send_asyncs(@tosend_async, cur_commands)
+      firstcmd, firstsize = send_asyncs(@tosend_async, cur_commands)
       size_asyncs = @tosend_async.pos
 
       @tosend_lists.rewind
@@ -157,8 +157,23 @@ module MySync
       if remaining >= size_asyncs + size_lists
         @io_tosend.write(@tosend_async.to_slice[0, size_asyncs])
         @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
+        # and mark all asyncs sas sent
+        cur_commands.each { |cmd| cmd.sent = Time.now }
       else
-        raise "size overflow: sync=#{@io_tosend.pos}, async=#{size_asyncs}, lists={size_lists}"
+        # now we should shrink. first step is to limit asyncs to one command
+        if firstcmd
+          cur_commands.pop(cur_commands.size - 1)
+          limit_asyncs(@tosend_async, cur_commands, firstsize)
+          @io_tosend.write(@tosend_async.to_slice[0, @tosend_async.pos])
+          firstcmd.sent = Time.now
+          remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
+        end
+        # check again size for lists
+        if remaining >= size_lists
+          @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
+        else
+          raise "size overflow: sync=#{@io_tosend.pos}, async=#{size_asyncs}, lists=#{size_lists}"
+        end
       end
 
       return @io_tosend.to_slice

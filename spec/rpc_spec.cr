@@ -57,6 +57,23 @@ it "rpc without response" do
   SpecLogger.dump_events.should eq ["SERVER: no_answer test"]
 end
 
+it "rpc several commands at same time" do
+  SpecLogger.dump_events
+  greeter.no_answer_without_response "test1"
+  greeter.no_answer_without_response "test2"
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]
+end
+
+it "rpc several commands at same time #2" do
+  SpecLogger.dump_events
+  5.times { greeter.no_answer_without_response "test" }
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer test").should eq 5
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer test").should eq 0
+end
+
 it "don't repeat old procedures" do
   SpecLogger.dump_events
   udp_cli.debug_loss = true
@@ -74,6 +91,20 @@ it "don't repeat old procedures" do
     one_exchange(cli, udp_cli)
   end
   SpecLogger.dump_events.count("SERVER: no_answer test").should eq 0
+end
+
+it "resend delay works" do
+  SpecLogger.dump_events
+  greeter.no_answer_without_response "missing"
+  udp_cli.debug_loss = true
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer missing").should eq 0
+  udp_cli.debug_loss = false
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer missing").should eq 0
+  sleep 0.25
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer missing").should eq 1
 end
 
 it "rpc without response with loses" do
@@ -127,4 +158,29 @@ it "rpc with response" do
   sleep 0.2
   udp_srv.debug_loss = false
   done.receive
+end
+
+udp_cli.autosend_delay = nil
+sleep 0.2
+
+it "shrink large stream to single commands" do
+  SpecLogger.dump_events
+  2.times { greeter.no_answer_without_response "0123456789" }
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 2
+  100.times { greeter.no_answer_without_response "0123456789" }
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 1
+  5.times { one_exchange(cli, udp_cli) }
+  SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 5
+  100.times { one_exchange(cli, udp_cli) }
+  SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 100 - 1 - 5
+end
+
+# how to expect raising in another fiber
+pending "raises when message is too long" do
+  expect_raises(Exception) do
+    greeter.greet_without_response(String.new(Bytes.new(10000)))
+    one_exchange(cli, udp_cli)
+  end
 end

@@ -7,7 +7,6 @@ module MySync
     getter rpc_manager = Cannon::Rpc::Manager.new
   end
 
-  # TODO - split
   abstract class EndPoint
     ackrecord RemoteMessage
 
@@ -40,14 +39,25 @@ module MySync
       end
     end
 
+    # returns first command and its data size
     def send_asyncs(io, cur_commands)
-      @cmd_buffer.select_applicable(MAX_PACKAGE_SIZE - sizeof(CmdID) - io.pos, Time.now) do |cmd|
+      # TODO - slicing big commands?
+      first = {nil, 0}
+      time = Time.now
+      @cmd_buffer.each_applicable(time) do |cmd|
         io.write_bytes(cmd.id)
         io.write_bytes(CmdSize.new(cmd.data.size))
         io.write(cmd.data.to_slice)
+        first = {cmd, io.pos} unless first[0]
         cur_commands << cmd
-        true
       end
+      io.write_bytes(CmdID.new(0))
+      return first
+    end
+
+    def limit_asyncs(io, cur_commands, size)
+      # reset io to position after first command and add terminator
+      io.pos = size
       io.write_bytes(CmdID.new(0))
     end
   end
@@ -83,18 +93,13 @@ module MySync
 
     def acked(cmd)
       @commands.delete cmd
+      # p "acked, now #{@commands.size}"
     end
 
-    def select_applicable(remaining_size : Int32, time : Time, &block)
-      # TODO - slicing big commands?
+    def each_applicable(time : Time, &block)
+      # p "yielding #{(@commands.count { |cmd| time - cmd.sent >= RESEND_TIME })} of #{@commands.size}"
       @commands.each do |cmd|
-        next if cmd.data.size > remaining_size
-        next if time - cmd.sent < RESEND_TIME
-        ok = yield(cmd)
-        if ok
-          remaining_size -= cmd.data.size
-          cmd.sent = time
-        end
+        yield(cmd) if time - cmd.sent >= RESEND_TIME
       end
     end
   end
