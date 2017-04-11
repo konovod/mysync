@@ -3,7 +3,8 @@ require "socket"
 require "./endpoint"
 require "./network"
 require "./package"
-require "./rpc"
+require "./payloads/rpc"
+require "./payloads/lists"
 
 module MySync
   enum AuthState

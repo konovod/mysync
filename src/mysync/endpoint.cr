@@ -2,9 +2,9 @@ require "cannon"
 require "./endpoint_types"
 require "./circular"
 require "./stats"
-require "./commands"
-require "./rpc"
-require "./lists"
+require "./payloads/commands"
+require "./payloads/rpc"
+require "./payloads/lists"
 
 module MySync
   module EndPointFactory

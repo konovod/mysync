@@ -3,6 +3,7 @@ require "monocypher"
 require "socket"
 require "./network"
 require "./package"
+require "./payloads/rpc"
 
 module MySync
   enum ConnectionCommand

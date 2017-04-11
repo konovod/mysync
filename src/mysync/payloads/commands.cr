@@ -1,4 +1,4 @@
-require "./endpoint_types"
+require "../endpoint_types"
 
 module MySync
   # TODO - later optimize to single buffer

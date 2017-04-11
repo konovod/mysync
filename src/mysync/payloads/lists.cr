@@ -1,4 +1,4 @@
-require "./uniqid"
+require "../uniqid"
 
 module MySync
   class ListItem

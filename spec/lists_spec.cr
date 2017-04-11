@@ -1,5 +1,5 @@
 require "./spec_helper"
-require "../src/mysync/lists"
+require "../src/mysync/payloads/lists"
 require "../src/mysync/uniqid"
 
 # on client side - client contains lists manager, inside there are lists.
