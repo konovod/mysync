@@ -2,9 +2,8 @@ require "socket"
 require "monocypher"
 require "./endpoint"
 
-# TODO: alias PoorManEvent = Channel(Nil)
+# TODO: alias PoorManEvent = Channel(Nil) or actually use events?
 # TODO: utilize inplace encrypt\decrypt
-# TODO: report private enum bug\feature
 
 module MySync
   alias Address = Socket::IPAddress
