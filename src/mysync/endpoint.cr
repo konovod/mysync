@@ -144,7 +144,7 @@ module MySync
       # sync data are sent always
       send_sync(@io_tosend)
       remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
-      raise "sync data too long: #{@io_tosend.pos}" if remaining < 0
+      # raise "sync data too long: #{@io_tosend.pos}" if remaining < 0
 
       @tosend_async.rewind
       firstcmd, firstsize = send_asyncs(@tosend_async, cur_commands)
@@ -169,8 +169,11 @@ module MySync
           limit_asyncs(@tosend_async, cur_commands, firstsize)
           @io_tosend.write(@tosend_async.to_slice[0, @tosend_async.pos])
           firstcmd.sent = Time.now
-          remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
+        else
+          # slight optimization
+          @io_tosend.write_bytes(CmdID.new(0))
         end
+        remaining = MAX_PACKAGE_SIZE - @io_tosend.pos
         # check if we still should shrink for lists
         if size_lists > 0
           if remaining < size_lists
@@ -183,7 +186,6 @@ module MySync
           @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
         end
       end
-
       return @io_tosend.to_slice
     end
   end
