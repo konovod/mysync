@@ -21,8 +21,8 @@ module MySync
       sync_lists.generate_message(self, io)
     end
 
-    def send_lists_partial(io, max_pos, rate)
-      sync_lists.generate_message_partial(self, io, max_pos, rate)
+    def send_lists_partial(io, max_pos)
+      sync_lists.generate_message_partial(self, io, max_pos)
     end
   end
 
@@ -105,6 +105,7 @@ module MySync
     getter last_updated = Hash(ItemID, Time).new
     getter cur_updated = Set(ItemID).new
     getter cur_deleted = Set(ItemID).new
+    property scroll = 0
   end
 
   # class representing syncronized list of entities on server
@@ -115,7 +116,7 @@ module MySync
   # from implementation it requires `full_state` and `delta_state` methods that serialize items
   abstract class ServerSyncList
     abstract def generate_message(who : EndPoint, io : IO)
-    abstract def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32, rate : Float64)
+    abstract def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32)
 
     # abstract def priority : Int32 TODO: lists prioritization
 
@@ -158,9 +159,12 @@ module MySync
     end
 
     # TODO unify interface with full message
-    def iterate_additions(io, who, state, chance : Float64? = nil, &block)
+    def iterate_additions(io, who, state, scroll : Int32? = nil, &block)
       iterate(who) do |item|
-        next if chance && rand > chance
+        if scroll && scroll > 0
+          scroll -= 1
+          next
+        end
         id = item.id
         Cannon.encode io, id
         # old = state.image[id]?
@@ -178,7 +182,7 @@ module MySync
       end
     end
 
-    def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32, rate : Float64)
+    def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32)
       state = who.sync_lists_serverside[self]
       max_pos -= sizeof(MySync::ItemID)
       # at least transmit deletions as they weights less
@@ -192,8 +196,8 @@ module MySync
         # process updated items, twice with a random chance of selection, then in normal order
         old_pos = io.pos
         returned_early = false
-        3.times do |iter|
-          iterate_additions(io, who, state, iter < 2 ? rate : nil) do |item|
+        2.times do |iter|
+          iterate_additions(io, who, state, iter == 0 ? state.scroll : nil) do |item|
             exhausted = io.pos > max_pos
             if exhausted
               io.pos = old_pos
@@ -201,10 +205,12 @@ module MySync
             else
               old_pos = io.pos
               state.last_updated[item.id] = Time.now
+              state.scroll += 1
             end
             exhausted
           end
           break if returned_early || io.pos >= max_pos
+          state.scroll = 0
         end
       end
       Cannon.encode io, MySync::ItemID.new(0)
@@ -236,12 +242,12 @@ module MySync
       @server_lists.each { |list| list.full_message_accepted(who) }
     end
 
-    def generate_message_partial(who, io : IO, max_size, rate)
+    def generate_message_partial(who, io : IO, max_size)
       # priorities would go here
       start = io.pos
       chunk = max_size / @server_lists.size - 1
       return if chunk < 2
-      @server_lists.each { |list| list.generate_message_partial who, io, io.pos + chunk, rate }
+      @server_lists.each { |list| list.generate_message_partial who, io, io.pos + chunk }
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size
     end
   end
