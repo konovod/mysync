@@ -8,6 +8,12 @@ module GreetDescription
   abstract def no_answer(text : String) : Nil
 end
 
+module FromServerDescription
+  include Cannon::Rpc::SingletonService(2)
+
+  abstract def hello(text : String) : Nil
+end
+
 class GreetService
   include Cannon::Rpc::Service(GreetDescription)
 
@@ -28,8 +34,20 @@ class GreetService
   end
 end
 
+class FromServerService
+  include Cannon::Rpc::Service(FromServerDescription)
+
+  def hello(text : String) : Nil
+    SpecLogger.log_cli "hello #{text}"
+  end
+end
+
 class GreetClient
   include Cannon::Rpc::RemoteService(GreetDescription)
+end
+
+class FromServerClient
+  include Cannon::Rpc::RemoteService(FromServerDescription)
 end
 
 cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
@@ -39,6 +57,9 @@ srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!
 srv.rpc_manager.add GreetService.new
+
+helloer = FromServerClient.new srv_inst.rpc_connection.not_nil!
+cli.rpc_connection.manager.add FromServerService.new
 
 SpecLogger.dump_events
 
@@ -175,6 +196,13 @@ it "shrink large stream to single commands" do
   SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 5
   100.times { one_exchange(cli, udp_cli) }
   SpecLogger.dump_events.count("SERVER: no_answer 0123456789").should eq 100 - 1 - 5
+end
+
+it "send back from server" do
+  SpecLogger.dump_events
+  helloer.hello_without_response "test"
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.should eq ["CLIENT: hello test"]
 end
 
 # how to expect raising in another fiber
