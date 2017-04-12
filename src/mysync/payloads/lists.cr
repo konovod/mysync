@@ -170,8 +170,20 @@ module MySync
     end
 
     def generate_message_partial(who : EndPoint, io : IO, max_size : Int32, rate : Float64)
-      Cannon.encode io, MySync::ItemID.new(0)
+      state = who.sync_lists_serverside[self]
       # at least transmit deletions as they weights less
+      state.cur_deleted.each do |id|
+        break if max_size <= 0
+        Cannon.encode io, id
+        Cannon.encode io, MySync::ChangeType::ItemDeletion.value
+        state.last_updated.delete(id)
+      end
+      if max_size > 2
+        # process updated items
+        # twice with a random chance of selection
+        # then in normal order
+      end
+      Cannon.encode io, MySync::ItemID.new(0)
     end
   end
 

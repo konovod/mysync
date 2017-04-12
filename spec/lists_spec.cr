@@ -243,12 +243,19 @@ it "syncing a second list" do
   cli_list2.bullets[0].y.should eq 98
 end
 
-it "don't crash on large lists" do
-  was_pl = cli_list.players.size
-  was_bul = cli_list2.bullets.size
+describe "process large lists" do
+  it "initial conditions" do
+    cli_list.players.size.should eq 2
+    cli_list2.bullets.size.should eq 1
+  end
+  outsider = srv_list.all_players[0]
+  srv_list.delete_player outsider
   100.times { |i| srv_list.new_player("load#{i}", 99) }
   100.times { |i| srv_list2.new_bullet(-i) }
   one_exchange(cli, udp_cli)
-  pp cli_list.players.size - was_pl
-  pp cli_list2.bullets.size - was_bul
+  it "deletions are be passed first" do
+    cli_list.players.count { |pl| pl.name == outsider.name }.should eq 0
+  end
+  pp cli_list.players.size
+  pp cli_list2.bullets.size
 end
