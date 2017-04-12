@@ -256,6 +256,8 @@ describe "process large lists" do
   it "deletions are be passed first" do
     cli_list.players.count { |pl| pl.name == outsider.name }.should eq 0
   end
+  # it "quota is split between lists" do
   pp cli_list.players.size
   pp cli_list2.bullets.size
+  # end
 end

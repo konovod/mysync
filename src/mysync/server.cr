@@ -42,8 +42,8 @@ module MySync
         begin
           conn2.execute
           @endpoint_factory.on_disconnecting(ip, nil)
-        rescue ex
-          @endpoint_factory.on_disconnecting(ip, ex)
+          # rescue ex
+          # @endpoint_factory.on_disconnecting(ip, ex)
         ensure
           @connections.delete(MySync.addr_hash(ip))
         end

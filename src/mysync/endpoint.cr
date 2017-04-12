@@ -178,7 +178,7 @@ module MySync
         if size_lists > 0
           if remaining < size_lists
             @tosend_lists.rewind
-            send_lists_partial(@tosend_lists, remaining, 1.0 * size_lists / remaining)
+            send_lists_partial(@tosend_lists, remaining, 1.0 * remaining / size_lists)
             size_lists = @tosend_lists.pos
           else
             sync_lists.full_message_accepted(self)
