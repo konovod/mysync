@@ -256,8 +256,45 @@ describe "process large lists" do
   it "deletions are be passed first" do
     cli_list.players.count { |pl| pl.name == outsider.name }.should eq 0
   end
-  # it "quota is split between lists" do
-  pp cli_list.players.size
-  pp cli_list2.bullets.size
-  # end
+  it "quota is split between lists" do
+    cli_list.players.size.should be > 2
+    cli_list.players.size.should be < 99
+    cli_list2.bullets.size.should be > 2
+    cli_list2.bullets.size.should be < 99
+    p "over players: #{1.0*srv_list.all_players.size / cli_list.players.size}"
+    p "over bullets: #{1.0*srv_list2.all_bullets.size / cli_list2.bullets.size}"
+  end
+  it "after some time, all items are likely synced" do
+    30.times { one_exchange(cli, udp_cli) }
+    p "players: #{1.0*cli_list.players.size / srv_list.all_players.size}"
+    p "bullets: #{1.0*cli_list2.bullets.size / srv_list2.all_bullets.size}"
+    (1.0*cli_list.players.size / srv_list.all_players.size).should be > 0.9
+    (1.0*cli_list2.bullets.size / srv_list2.all_bullets.size).should be > 0.9
+  end
+end
+
+N = 20
+it "benchmark of lists" do
+  udp_srv.disconnect_delay = 1.seconds
+  clients = [] of TestClientEndpoint
+  N.times do
+    acli = TestClientEndpoint.new
+    audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 3))
+    acli.sync_lists << ClientPlayersList.new
+    acli.sync_lists << ClientBulletsList.new
+    audp_cli.login(public_key, Bytes.new(0))
+    one_login(audp_cli)
+    acli.benchmark = 1000
+    acli.benchmark_udp = audp_cli
+    clients << acli
+  end
+  clients.each do |acli|
+    acli.benchmark_udp.not_nil!.send_manually
+  end
+  clients.each do |acli|
+    acli.benchmark_complete.receive
+  end
+  t = clients.sum &.stat_pingtime
+  us = (t*1000000.0 / N / N).to_i
+  p "time per packet: #{us} us"
 end

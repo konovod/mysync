@@ -241,7 +241,7 @@ module MySync
       start = io.pos
       chunk = max_size / @server_lists.size - 1
       return if chunk < 2
-      @server_lists.each { |list| list.generate_message_partial who, io, io.pos + chunk, rate*0.25 }
+      @server_lists.each { |list| list.generate_message_partial who, io, io.pos + chunk, rate }
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size
     end
   end
