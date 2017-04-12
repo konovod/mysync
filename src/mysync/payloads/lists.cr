@@ -171,6 +171,7 @@ module MySync
 
     def generate_message_partial(who : EndPoint, io : IO, max_size : Int32, rate : Float64)
       Cannon.encode io, MySync::ItemID.new(0)
+      # at least transmit deletions as they weights less
     end
   end
 
