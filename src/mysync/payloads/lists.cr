@@ -1,4 +1,4 @@
-require "../uniqid"
+require "../utils/uniqid"
 
 module MySync
   module EndPointFactory

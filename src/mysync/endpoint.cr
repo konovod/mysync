@@ -1,7 +1,7 @@
 require "cannon"
 require "./endpoint_types"
 require "./circular"
-require "./stats"
+require "./utils/stats"
 require "./payloads/commands"
 require "./payloads/rpc"
 require "./payloads/lists"

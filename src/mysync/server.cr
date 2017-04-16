@@ -2,7 +2,8 @@ require "./endpoint"
 require "monocypher"
 require "socket"
 require "./network"
-require "./package"
+require "./utils/package"
+require "./utils/every"
 require "./server_connection"
 
 module MySync
@@ -79,8 +80,7 @@ module MySync
     end
 
     private def timed_fiber
-      loop do
-        sleep(0.2)
+      every(0.2.seconds) do
         cleanup_connections
       end
     end

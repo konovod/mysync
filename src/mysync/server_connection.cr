@@ -2,7 +2,7 @@ require "./endpoint"
 require "monocypher"
 require "socket"
 require "./network"
-require "./package"
+require "./utils/package"
 require "./payloads/rpc"
 
 module MySync

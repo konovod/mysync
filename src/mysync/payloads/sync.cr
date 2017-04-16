@@ -1,5 +1,3 @@
-# require "../endpoint_types"
-
 module MySync
   abstract class EndPoint
     abstract def receive_sync(io : IO)

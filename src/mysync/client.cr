@@ -2,7 +2,7 @@ require "monocypher"
 require "socket"
 require "./endpoint"
 require "./network"
-require "./package"
+require "./utils/package"
 require "./payloads/rpc"
 require "./payloads/lists"
 
@@ -108,8 +108,9 @@ module MySync
     private def auto_sending_fiber
       loop do
         if delay = get_autodelay
+          t = Time.now
           @should_send.send nil
-          sleep delay
+          sleep({delay - (Time.now - t), 0.01.seconds}.max)
         else
           sleep 0.1
         end
