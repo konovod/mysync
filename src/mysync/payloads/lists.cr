@@ -105,6 +105,7 @@ module MySync
     getter last_updated = Hash(ItemID, Time).new
     getter cur_updated = Set(ItemID).new
     getter cur_deleted = Set(ItemID).new
+    property full_size = 0
     property scroll = 0
   end
 
@@ -139,6 +140,7 @@ module MySync
       state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
         who.sync_lists_serverside[self] = it
       end
+      old_pos = io.pos
       actual = Time.now
       # addition\update messages
       state.cur_updated.clear
@@ -156,6 +158,7 @@ module MySync
         state.cur_deleted << id
       end
       Cannon.encode io, MySync::ItemID.new(0)
+      state.full_size = io.pos - old_pos
     end
 
     # TODO unify interface with full message
@@ -245,9 +248,18 @@ module MySync
     def generate_message_partial(who, io : IO, max_size)
       # priorities would go here
       start = io.pos
-      chunk = max_size / @server_lists.size - 1
-      return if chunk < 2
-      @server_lists.each { |list| list.generate_message_partial who, io, io.pos + chunk }
+      total = @server_lists.sum { |list| who.sync_lists_serverside[list].full_size }
+      return if total == 0
+      rate = (100*max_size / total).clamp(1, 100)
+      @server_lists.each { |list|
+        last = list == @server_lists.last
+        if last
+          chunk = max_size - (io.pos - start)
+        else
+          chunk = rate * who.sync_lists_serverside[list].full_size / 100
+        end
+        list.generate_message_partial who, io, io.pos + chunk
+      }
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size
     end
   end
