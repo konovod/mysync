@@ -273,11 +273,11 @@ describe "process large lists" do
   end
 end
 
-N = 20
+N1 = 20
 it "benchmark of lists" do
   udp_srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
-  N.times do
+  N1.times do
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 3))
     acli.sync_lists << ClientPlayersList.new
@@ -295,6 +295,6 @@ it "benchmark of lists" do
     acli.benchmark_complete.receive
   end
   t = clients.sum &.stat_pingtime
-  us = (t*1000000.0 / N / N).to_i
+  us = (t*1000000.0 / N1 / N1).to_i
   p "time per packet: #{us} us"
 end
