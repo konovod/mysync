@@ -243,6 +243,17 @@ it "syncing a second list" do
   cli_list2.bullets[0].y.should eq 98
 end
 
+def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+  srv_list.all_players.clear
+  srv_list2.all_bullets.clear
+  10.times { one_exchange(cli, udp_cli) }
+  n1.times { |i| srv_list.new_player("pretty long load#{i}", 99) }
+  n2.times { |i| srv_list2.new_bullet(-i) }
+  nex.times { one_exchange(cli, udp_cli) }
+  {(1.0*cli_list.players.size / n1),
+   (1.0*cli_list2.bullets.size / n2)}
+end
+
 describe "process large lists" do
   it "initial conditions" do
     cli_list.players.size.should eq 2
@@ -253,28 +264,38 @@ describe "process large lists" do
   100.times { |i| srv_list.new_player("load#{i}", 99) }
   100.times { |i| srv_list2.new_bullet(-i) }
   one_exchange(cli, udp_cli)
-  it "deletions are be passed first" do
+  it "deletions are passed first" do
     cli_list.players.count { |pl| pl.name == outsider.name }.should eq 0
   end
   it "quota is split between lists" do
+    p "over players: #{1.0*srv_list.all_players.size / cli_list.players.size}"
+    p "over bullets: #{1.0*srv_list2.all_bullets.size / cli_list2.bullets.size}"
     cli_list.players.size.should be > 2
     cli_list.players.size.should be < 99
     cli_list2.bullets.size.should be > 2
     cli_list2.bullets.size.should be < 99
-    p "over players: #{1.0*srv_list.all_players.size / cli_list.players.size}"
-    p "over bullets: #{1.0*srv_list2.all_bullets.size / cli_list2.bullets.size}"
   end
-  it "after some time, all items are likely synced" do
-    30.times { one_exchange(cli, udp_cli) }
-    p "players: #{1.0*cli_list.players.size / srv_list.all_players.size}"
-    p "bullets: #{1.0*cli_list2.bullets.size / srv_list2.all_bullets.size}"
-    (1.0*cli_list.players.size / srv_list.all_players.size).should be > 0.9
-    (1.0*cli_list2.bullets.size / srv_list2.all_bullets.size).should be > 0.9
+  it "good coditions, rates 100%" do
+    r1, r2 = check_rates(100, 100, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1.should eq 1
+    r2.should eq 1
+  end
+  it "assymmetric good conditions, rates 100%" do
+    r1, r2 = check_rates(20, 200, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1.should eq 1
+    r2.should eq 1
+    r1, r2 = check_rates(100, 20, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1.should eq 1
+    r2.should eq 1
+  end
+  it "severe conditions" do
+    r1, r2 = check_rates(1000, 1000, 1000, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    pp r1, r2
   end
 end
 
 N1 = 20
-it "benchmark of lists" do
+pending "benchmark of lists" do
   udp_srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
   N1.times do
