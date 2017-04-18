@@ -149,12 +149,12 @@ udp_cli.login(public_key, Bytes.new(1))
 one_login(udp_cli)
 srv_inst = srv.test_endpoint.not_nil!
 
-pending "starts empty" do
+it "starts empty" do
   cli_list.players.size.should eq 0
   srv_list.all_players.size.should eq 0
 end
 
-pending "syncs added elements" do
+it "syncs added elements" do
   srv_list.new_player("test", 99)
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 1
@@ -167,14 +167,14 @@ pending "syncs added elements" do
   cli_list.players[1].hp.should eq 98
 end
 
-pending "syncs deleting elements" do
+it "syncs deleting elements" do
   srv_list.delete_player(srv_list.all_players[0])
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 1
   cli_list.players[0].name.should eq "test2"
 end
 
-pending "syncs updating elements" do
+it "syncs updating elements" do
   pl1 = srv_list.all_players[0]
   pl1.hp = 50
   cli_list.players[0].hp.should_not eq 50
@@ -190,7 +190,7 @@ pending "use delta for updating elements" do
   cli_list.players[0].name.should_not eq "me"
 end
 
-pending "syncs adding in case of packets loss" do
+it "syncs adding in case of packets loss" do
   srv_list.new_player("test3", 99)
   udp_srv.debug_loss = true
   one_exchange(cli, udp_cli)
@@ -207,7 +207,7 @@ pending "syncs adding in case of packets loss" do
   cli_list.players[2].name.should eq "test4"
 end
 
-pending "syncs deleting in case of packets loss" do
+it "syncs deleting in case of packets loss" do
   name = srv_list.all_players[0].name
   srv_list.delete_player(srv_list.all_players[0])
   cli_list.players[0].name.should eq name
@@ -222,9 +222,10 @@ pending "syncs deleting in case of packets loss" do
   sleep 0.1
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should_not eq name
+  cli_list.fading_delay = 1.seconds
 end
 
-pending "syncing a second list" do
+it "syncing a second list" do
   srv_list2.new_bullet(99)
   one_exchange(cli, udp_cli)
   cli_list2.bullets.size.should eq 1
@@ -247,6 +248,8 @@ def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_
   srv_list.all_players.clear
   srv_list2.all_bullets.clear
   100.times { one_exchange(cli, udp_cli) }
+  cli_list.players.size.should eq 0
+  cli_list2.bullets.size.should eq 0
   n1.times { |i| srv_list.new_player("pretty long load#{i}", 99) }
   n2.times { |i| srv_list2.new_bullet(-i) }
   nex.times { one_exchange(cli, udp_cli) }
@@ -255,7 +258,7 @@ def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_
 end
 
 describe "process large lists" do
-  pending "initial conditions" do
+  it "initial conditions" do
     srv_list.all_players.clear
     srv_list2.all_bullets.clear
     100.times { one_exchange(cli, udp_cli) }
@@ -266,7 +269,7 @@ describe "process large lists" do
     cli_list.players.size.should eq 2
     cli_list2.bullets.size.should eq 0
   end
-  pending "deletions are passed first, quota is split between lists" do
+  it "deletions are passed first, quota is split between lists" do
     outsider = srv_list.all_players[0]
     srv_list.delete_player outsider
     100.times { |i| srv_list.new_player("load#{i}", 99) }
@@ -280,22 +283,24 @@ describe "process large lists" do
     cli_list2.bullets.size.should be > 2
     cli_list2.bullets.size.should be < 99
   end
-  pending "good coditions, rates 100%" do
+  it "good coditions, rates 100%" do
     r1, r2 = check_rates(100, 100, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     r1.should eq 1
     r2.should eq 1
   end
-  pending "assymmetric good conditions, rates 100%" do
-    r1, r2 = check_rates(20, 200, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+  it "assymmetric good conditions, rates 100%" do
+    r1, r2 = check_rates(20, 500, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     r1.should eq 1
     r2.should eq 1
-    r1, r2 = check_rates(300, 20, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1, r2 = check_rates(500, 20, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     r1.should eq 1
     r2.should eq 1
   end
-  pending "severe conditions" do
+  it "severe conditions" do
     r1, r2 = check_rates(1000, 1000, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     pp r1, r2
+    r1.should be > 0.5
+    r2.should be > 0.5
   end
 end
 
@@ -310,7 +315,7 @@ pending "benchmark of lists" do
     acli.sync_lists << ClientBulletsList.new
     audp_cli.login(public_key, Bytes.new(0))
     one_login(audp_cli)
-    acli.benchmark = 1000
+    acli.benchmark = 100
     acli.benchmark_udp = audp_cli
     clients << acli
   end

@@ -197,10 +197,10 @@ module MySync
         state.last_updated.delete(id)
       end
       if io.pos < max_pos - 4 && !state.cur_updated.empty?
-        # process updated items, twice with a random chance of selection, then in normal order
+        # process updated items, two times for restarting a list from start
         old_pos = io.pos
         returned_early = false
-        2.times do |iter|
+        (state.scroll > 0 ? 2 : 1).times do |iter|
           iterate_additions(io, who, state, iter == 0 ? state.scroll : nil) do |item|
             exhausted = io.pos > max_pos
             if exhausted
@@ -246,19 +246,22 @@ module MySync
       @server_lists.each { |list| list.full_message_accepted(who) }
     end
 
+    private FIXED_CALC = 10000
+
     def generate_message_partial(who, io : IO, max_size)
       # priorities would go here
       start = io.pos
       total = @server_lists.sum { |list| who.sync_lists_serverside[list].full_size }
       return if total == 0
-      rate = (100*max_size / total).clamp(1, 100)
+      rate = (FIXED_CALC*max_size / total).clamp(1, FIXED_CALC)
       @server_lists.each do |list|
         last = list == @server_lists.last
         if last
           chunk = max_size - (io.pos - start)
         else
-          chunk = rate * who.sync_lists_serverside[list].full_size / 100
+          chunk = rate * who.sync_lists_serverside[list].full_size / FIXED_CALC
         end
+        # pp rate, chunk, rate * who.sync_lists_serverside[list].full_size / FIXED_CALC
         list.generate_message_partial who, io, io.pos + chunk
       end
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size
