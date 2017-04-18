@@ -187,6 +187,7 @@ module MySync
 
     def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32)
       state = who.sync_lists_serverside[self]
+      # pp T, state.scroll, max_pos - io.pos
       max_pos -= sizeof(MySync::ItemID)
       # at least transmit deletions as they weights less
       state.cur_deleted.each do |id|
@@ -251,7 +252,7 @@ module MySync
       total = @server_lists.sum { |list| who.sync_lists_serverside[list].full_size }
       return if total == 0
       rate = (100*max_size / total).clamp(1, 100)
-      @server_lists.each { |list|
+      @server_lists.each do |list|
         last = list == @server_lists.last
         if last
           chunk = max_size - (io.pos - start)
@@ -259,7 +260,7 @@ module MySync
           chunk = rate * who.sync_lists_serverside[list].full_size / 100
         end
         list.generate_message_partial who, io, io.pos + chunk
-      }
+      end
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size
     end
   end
