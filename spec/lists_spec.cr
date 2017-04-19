@@ -188,27 +188,28 @@ it "use delta for updating elements" do
   pl1.name = "me"
   cli_list.players[0].name.should_not eq "me"
   one_exchange(cli, udp_cli)
-  # one_exchange(cli, udp_cli)
   cli_list.players[0].name.should_not eq "me"
   cli_list.players[0].name = old
   pl1.name = old
 end
 
 it "syncs adding in case of packets loss" do
+  old = srv_list.all_players[0].name
   srv_list.new_player("test3", 99)
   udp_srv.debug_loss = true
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
+  udp_cli.debug_loss = true
   srv_list.new_player("test4", 99)
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 1
   udp_srv.debug_loss = false
+  udp_cli.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 3
   one_exchange(cli, udp_cli)
-  cli_list.players[1].name.should eq "test3"
-  cli_list.players[2].name.should eq "test4"
+  cli_list.players.map(&.name).sort.should eq ["test3", "test4", old].sort
 end
 
 it "syncs deleting in case of packets loss" do
@@ -308,9 +309,17 @@ describe "process large lists" do
   end
 end
 
-N1 = 20
+N1 = 100
+N2 =  10
 it "benchmark of lists" do
-  udp_srv.disconnect_delay = 1.seconds
+  # ensure there is enough payload in lists
+  if srv_list.all_players.size < 1000
+    (1000 - srv_list.all_players.size).times { |i| srv_list.new_player("pretty long load#{i}", 99) }
+  end
+  if srv_list2.all_bullets.size < 1000
+    (1000 - srv_list2.all_bullets.size).times { |i| srv_list2.new_bullet(-i) }
+  end
+  udp_srv.disconnect_delay = 2.seconds
   clients = [] of TestClientEndpoint
   N1.times do
     acli = TestClientEndpoint.new
@@ -319,7 +328,8 @@ it "benchmark of lists" do
     acli.sync_lists << ClientBulletsList.new
     audp_cli.login(public_key, Bytes.new(0))
     one_login(audp_cli)
-    acli.benchmark = 100
+    acli.benchmark = N2
+    # acli.fading_delay = 2.seconds
     acli.benchmark_udp = audp_cli
     clients << acli
   end
