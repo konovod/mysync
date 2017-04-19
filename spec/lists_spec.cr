@@ -309,7 +309,7 @@ describe "process large lists" do
 end
 
 N1 = 20
-pending "benchmark of lists" do
+it "benchmark of lists" do
   udp_srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
   N1.times do
