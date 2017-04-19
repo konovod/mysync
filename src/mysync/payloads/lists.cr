@@ -208,12 +208,10 @@ module MySync
       state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
         who.sync_lists_serverside[self] = it
       end # TODO - is it required?
-      pp seqid, positive
       state.items.each do |itemid, x|
         next if x.acked
         next unless x.first_sent
         next unless x.first_sent == seqid
-        pp itemid, seqid, positive
         if positive
           x.acked = true
         else

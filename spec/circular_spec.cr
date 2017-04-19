@@ -67,15 +67,35 @@ describe "CircularAckBuffer" do
     end
     buf.cur_seq = 1005u16
     acked = [] of String
-    buf.apply_mask(1000u16, 7u32) { |x| acked << x.payload }
+    buf.apply_mask(1000u16, 7u32) { |id, x| acked << x.payload }
     acked.should eq ["ack997", "ack999"]
-    buf.apply_mask(1000u16, 31u32) { |x| acked << x.payload }
+    buf.apply_mask(1000u16, 31u32) { |id, x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995"]
-    buf.apply_mask(999u16, 128u32) { |x| acked << x.payload }
+    buf.apply_mask(999u16, 128u32) { |id, x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995", "ack991"]
-    buf.apply_mask(935u16, 65535u32) { |x| acked << x.payload }
+    buf.apply_mask(935u16, 65535u32) { |id, x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995", "ack991"]
-    buf.apply_mask(976u16, 0xFFFFFFFFu32) { |x| acked << x.payload }
+    buf.apply_mask(976u16, 0xFFFFFFFFu32) { |id, x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991", "ack973", "ack975"]
+  end
+
+  base = 1u16
+  it "applies mask of acked packets at low seq number" do
+    buf.cur_seq = base
+    33.times do |i|
+      buf[base - i] = TestAck.new(i % 2 == 0, "ack#{1000u16 - i}")
+    end
+    buf.cur_seq = base + 5u16
+    acked = [] of String
+    buf.apply_mask(base, 7u32) { |id, x| acked << x.payload }
+    acked.should eq ["ack997", "ack999"]
+    buf.apply_mask(base, 31u32) { |id, x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995"]
+    buf.apply_mask(base - 1, 128u32) { |id, x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991"]
+    buf.apply_mask(base - 75, 65535u32) { |id, x| acked << x.payload }
+    acked.should eq ["ack997", "ack999", "ack995", "ack991"]
+    buf.apply_mask(base - 24, 0xFFFFFFFFu32) { |id, x| acked << x.payload }
     acked.should eq ["ack997", "ack999", "ack995", "ack991", "ack973", "ack975"]
   end
 

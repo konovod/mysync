@@ -184,16 +184,16 @@ end
 
 it "use delta for updating elements" do
   pl1 = srv_list.all_players[0]
+  old = pl1.name
   pl1.name = "me"
   cli_list.players[0].name.should_not eq "me"
-  puts "BEFORE"
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
-  puts "AFTER"
   cli_list.players[0].name.should_not eq "me"
+  cli_list.players[0].name = old
 end
 
-pending "syncs adding in case of packets loss" do
+it "syncs adding in case of packets loss" do
   srv_list.new_player("test3", 99)
   udp_srv.debug_loss = true
   one_exchange(cli, udp_cli)
@@ -210,7 +210,7 @@ pending "syncs adding in case of packets loss" do
   cli_list.players[2].name.should eq "test4"
 end
 
-pending "syncs deleting in case of packets loss" do
+it "syncs deleting in case of packets loss" do
   name = srv_list.all_players[0].name
   srv_list.delete_player(srv_list.all_players[0])
   cli_list.players[0].name.should eq name
@@ -228,7 +228,7 @@ pending "syncs deleting in case of packets loss" do
   cli_list.fading_delay = 1.seconds
 end
 
-pending "syncing a second list" do
+it "syncing a second list" do
   srv_list2.new_bullet(99)
   one_exchange(cli, udp_cli)
   cli_list2.bullets.size.should eq 1
@@ -261,7 +261,7 @@ def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_
 end
 
 describe "process large lists" do
-  pending "initial conditions" do
+  it "initial conditions" do
     srv_list.all_players.clear
     srv_list2.all_bullets.clear
     100.times { one_exchange(cli, udp_cli) }
@@ -272,7 +272,7 @@ describe "process large lists" do
     cli_list.players.size.should eq 2
     cli_list2.bullets.size.should eq 0
   end
-  pending "deletions are passed first, quota is split between lists" do
+  it "deletions are passed first, quota is split between lists" do
     outsider = srv_list.all_players[0]
     srv_list.delete_player outsider
     100.times { |i| srv_list.new_player("load#{i}", 99) }
@@ -286,12 +286,12 @@ describe "process large lists" do
     cli_list2.bullets.size.should be > 2
     cli_list2.bullets.size.should be < 99
   end
-  pending "good coditions, rates 100%" do
+  it "good coditions, rates 100%" do
     r1, r2 = check_rates(100, 100, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     r1.should eq 1
     r2.should eq 1
   end
-  pending "assymmetric good conditions, rates 100%" do
+  it "assymmetric good conditions, rates 100%" do
     r1, r2 = check_rates(20, 500, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     r1.should eq 1
     r2.should eq 1
@@ -299,7 +299,7 @@ describe "process large lists" do
     r1.should eq 1
     r2.should eq 1
   end
-  pending "severe conditions" do
+  it "severe conditions" do
     r1, r2 = check_rates(1000, 1000, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
     pp r1, r2
     r1.should be > 0.5

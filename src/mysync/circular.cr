@@ -50,18 +50,13 @@ module MySync
     end
 
     def apply_mask(start : Sequence, mask : AckMask)
-      p "step1"
       return if @cur_seq - start > N_ACKS
-      p "step2"
       N_ACKS.times do |ir|
         i = (N_ACKS - 1) - ir
         next if (i > 0) && (mask & 1 << (i - 1) == 0)
         seq = start - i
-        pp "step3", seq, start, i, @cur_seq, N_ACKS
-        next if seq <= @cur_seq - N_ACKS
-        p "step4"
+        next if SequenceSigned.new(seq - @cur_seq) <= -N_ACKS
         next if passed(seq)
-        p "step5"
         set_passed(seq, true)
         yield(seq, @data[seq_to_index(seq)])
       end
