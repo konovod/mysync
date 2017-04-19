@@ -188,9 +188,10 @@ it "use delta for updating elements" do
   pl1.name = "me"
   cli_list.players[0].name.should_not eq "me"
   one_exchange(cli, udp_cli)
-  one_exchange(cli, udp_cli)
+  # one_exchange(cli, udp_cli)
   cli_list.players[0].name.should_not eq "me"
   cli_list.players[0].name = old
+  pl1.name = old
 end
 
 it "syncs adding in case of packets loss" do
