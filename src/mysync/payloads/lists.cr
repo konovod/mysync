@@ -15,8 +15,8 @@ module MySync
       sync_lists.process_received(io)
     end
 
-    def acked_lists(id : Sequence, positive : Bool)
-      sync_lists.acked(self, id, positive)
+    def acked_lists(seqid : Sequence, positive : Bool)
+      sync_lists.acked(self, seqid, positive)
     end
 
     def reset_lists
@@ -208,10 +208,12 @@ module MySync
       state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
         who.sync_lists_serverside[self] = it
       end # TODO - is it required?
+      pp seqid, positive
       state.items.each do |itemid, x|
         next if x.acked
         next unless x.first_sent
         next unless x.first_sent == seqid
+        pp itemid, seqid, positive
         if positive
           x.acked = true
         else
@@ -273,8 +275,8 @@ module MySync
       @client_lists.each { |list| list.process_received io }
     end
 
-    def acked(who, id : Sequence, positive : Bool)
-      @server_lists.each { |list| list.acked who, id, positive }
+    def acked(who, seqid : Sequence, positive : Bool)
+      @server_lists.each { |list| list.acked who, seqid, positive }
     end
 
     def generate_message(who, io : IO)
