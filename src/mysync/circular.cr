@@ -58,7 +58,7 @@ module MySync
         next if seq <= @cur_seq - N_ACKS
         next if passed(seq)
         set_passed(seq, true)
-        yield(@data[seq_to_index(seq)])
+        yield(seq_to_index(seq), @data[seq_to_index(seq)])
       end
     end
 

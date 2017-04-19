@@ -50,7 +50,7 @@ class ServerPlayersList < MySync::ServerSyncList
     PlayerAdder.new(item.name, item.hp)
   end
 
-  def delta_state(old_state, item)
+  def delta_state(item)
     PlayerUpdater.new(item.hp)
   end
 
@@ -111,7 +111,7 @@ class ServerBulletsList < MySync::ServerSyncList
     BulletAdder.new(UInt8.new(item.typ), Int16.new(item.x), Int16.new(item.y))
   end
 
-  def delta_state(old_state, item)
+  def delta_state(item)
     nil
   end
 
@@ -182,7 +182,7 @@ it "syncs updating elements" do
   cli_list.players[0].hp.should eq 50
 end
 
-pending "use delta for updating elements" do
+it "use delta for updating elements" do
   pl1 = srv_list.all_players[0]
   pl1.name = "me"
   cli_list.players[0].name.should_not eq "me"
@@ -305,7 +305,7 @@ describe "process large lists" do
 end
 
 N1 = 20
-pending "benchmark of lists" do
+it "benchmark of lists" do
   udp_srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
   N1.times do

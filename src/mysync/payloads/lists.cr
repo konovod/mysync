@@ -1,3 +1,5 @@
+require "cannon"
+require "../endpoint_types"
 require "../utils/uniqid"
 
 module MySync
@@ -13,8 +15,12 @@ module MySync
       sync_lists.process_received(io)
     end
 
-    def acked_lists(data : LocalAckData)
-      # TODO
+    def acked_lists(id : Sequence, positive : Bool)
+      sync_lists.acked(self, id, positive)
+    end
+
+    def reset_lists
+      sync_lists_serverside.clear
     end
 
     def send_lists(io)
@@ -100,9 +106,18 @@ module MySync
 
   # class representing syncronized list of entities on server
   # part with connection data
+
+  private class PerItem
+    property last_sent = Time.new(0)
+    property first_sent : Sequence?
+    property acked = false
+  end
+
+  # alias PerItem = Time
+
   class SyncListEndpointSpecific
     # @image = Hash(ItemID, FullState).new TODO - lol, system is broken again
-    getter last_updated = Hash(ItemID, Time).new
+    getter items = Hash(ItemID, PerItem).new
     getter cur_updated = Set(ItemID).new
     getter cur_deleted = Set(ItemID).new
     property full_size = 0
@@ -118,22 +133,30 @@ module MySync
   abstract class ServerSyncList
     abstract def generate_message(who : EndPoint, io : IO)
     abstract def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32)
-
+    abstract def acked(who : EndPoint, id : Sequence, positive : Bool)
     # abstract def priority : Int32 TODO: lists prioritization
 
   end
 
   module ServerSyncListImplementation(T, FullState, DeltaState)
     abstract def full_state(item : T) : FullState
-    abstract def delta_state(old_state : FullState, item : T) : DeltaState
+    abstract def delta_state(item : T) : DeltaState
     abstract def iterate(who : EndPoint, &block : T -> Nil)
+
+    private def actualize(who, state, id)
+      data = state.items[id]? || PerItem.new.tap { |it| state.items[id] = it }
+      data.last_sent = Time.now
+      if !data.acked && !data.first_sent
+        data.first_sent = who.local_seq
+      end
+    end
 
     # TODO: sort according to time? total mechanism of overflow processing
     def full_message_accepted(who : MySync::EndPoint)
       state = who.sync_lists_serverside[self]
       actual = Time.now
-      state.last_updated.reject! { |item| state.cur_deleted.includes? item }
-      state.cur_updated.each { |item| state.last_updated[item] = actual }
+      state.items.reject! { |id, value| state.cur_deleted.includes? id }
+      state.cur_updated.each { |id| actualize(who, state, id) }
     end
 
     def generate_message(who : MySync::EndPoint, io : IO)
@@ -150,7 +173,7 @@ module MySync
       end
       # deletion messages
       state.cur_deleted.clear
-      state.last_updated.each do |id, time|
+      state.items.each do |id, data|
         # state.image...
         next if state.cur_updated.includes? id
         Cannon.encode io, id
@@ -161,7 +184,6 @@ module MySync
       state.full_size = io.pos - old_pos
     end
 
-    # TODO unify interface with full message
     def iterate_additions(io, who, state, scroll : Int32? = nil, &block)
       iterate(who) do |item|
         if scroll && scroll > 0
@@ -170,18 +192,31 @@ module MySync
         end
         id = item.id
         Cannon.encode io, id
-        # old = state.image[id]?
-        full = full_state(item)
-        # if old
-        #   Cannon.encode io, ItemUpdate
-        #   Cannon.encode delta_state(old, item)
-        # else
-        Cannon.encode io, MySync::ChangeType::ItemAddition.value
-        Cannon.encode io, full
-        # end
-        # state.image[id] = full
-        # state.last_updated[id] = actual
+        x = state.items[id]?
+        if x && x.acked
+          Cannon.encode io, MySync::ChangeType::ItemUpdate.value
+          Cannon.encode io, delta_state(item)
+        else
+          Cannon.encode io, MySync::ChangeType::ItemAddition.value
+          Cannon.encode io, full_state(item)
+        end
         return if yield(item)
+      end
+    end
+
+    def acked(who : EndPoint, seqid : Sequence, positive : Bool)
+      state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
+        who.sync_lists_serverside[self] = it
+      end # TODO - is it required?
+      state.items.each do |itemid, x|
+        next if x.acked
+        next unless x.first_sent
+        next unless x.first_sent == seqid
+        if positive
+          x.acked = true
+        else
+          x.first_sent = nil
+        end
       end
     end
 
@@ -194,7 +229,7 @@ module MySync
         break if io.pos >= max_pos - 4
         Cannon.encode io, id
         Cannon.encode io, MySync::ChangeType::ItemDeletion.value
-        state.last_updated.delete(id)
+        state.items.delete(id)
       end
       if io.pos < max_pos - 4 && !state.cur_updated.empty?
         # process updated items, two times for restarting a list from start
@@ -208,7 +243,7 @@ module MySync
               returned_early = true
             else
               old_pos = io.pos
-              state.last_updated[item.id] = Time.now
+              actualize(who, state, item.id)
               state.scroll += 1
             end
             exhausted
@@ -236,6 +271,10 @@ module MySync
 
     def process_received(io : IO)
       @client_lists.each { |list| list.process_received io }
+    end
+
+    def acked(who, id : Sequence, positive : Bool)
+      @server_lists.each { |list| list.acked who, id, positive }
     end
 
     def generate_message(who, io : IO)

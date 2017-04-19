@@ -62,6 +62,7 @@ module MySync
       @local_acks.reset
       @remote_acks.reset
       @remote_message_acks.reset
+      reset_lists
       @requested_disconnect = false
     end
 
@@ -93,10 +94,10 @@ module MySync
       @losses.value
     end
 
-    private def packet_acked(data : LocalAckData)
+    private def packet_acked(id : Sequence, data : LocalAckData)
       @ping_time.add(Time.now - data.sent)
       acked_asyncs(data)
-      acked_lists(data)
+      acked_lists(id, true)
     end
 
     def process_receive(data : Bytes) : Nil
@@ -118,7 +119,7 @@ module MySync
       end
       @remote_acks.set_passed(header.sequence, true)
       # process acks mask of our packets
-      @local_acks.apply_mask(header.ack, header.ack_mask) { |data| packet_acked(data) }
+      @local_acks.apply_mask(header.ack, header.ack_mask) { |seq, data| packet_acked(seq, data) }
 
       # reading payloads
       receive_sync(@io_received) # TODO add size field to skip decoding OoO packets?
@@ -132,7 +133,11 @@ module MySync
 
     def process_sending : Bytes
       @io_tosend.rewind
-      @losses.add !@local_acks.passed(self.local_seq - (N_ACKS - 2))
+      lost = !@local_acks.passed(self.local_seq - (N_ACKS - 2))
+      @losses.add lost
+      if lost
+        acked_lists(self.local_seq - (N_ACKS - 2), false)
+      end
       self.local_seq += 1
       cur_commands = [] of Command
       @local_acks[self.local_seq] = LocalAckData.new(false, Time.now, cur_commands)
