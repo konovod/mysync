@@ -20,8 +20,7 @@ module MySync
     getter endpoint : EndPoint?
 
     def initialize(@address : Address, @socket : UDPSocket,
-                   @endpoint_factory : EndPointFactory,
-                   @server : UDPGameServer)
+                   @server : GameServer)
       @last_message = Time.now
       @received = Package.new(MAX_RAW_SIZE) # TODO - remove small tail?
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -67,13 +66,13 @@ module MySync
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
                       # additional: @received.slice[0, Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
-      tuple = @endpoint_factory.new_endpoint(@received_decrypted.slice)
+      tuple = @server.new_endpoint(@received_decrypted.slice)
       if point = tuple[:endpoint] # successful auth
         @symmetric_key.reroll
         @endpoint = point
         # now init common data
-        point.rpc_connection = CannonInterface.new point, @endpoint_factory.rpc_manager
-        point.sync_lists = @endpoint_factory.sync_lists
+        point.rpc_connection = CannonInterface.new point, @server.rpc_manager
+        point.sync_lists = @server.sync_lists
         response = Bytes.new(1 + Crypto::SymmetricKey.size + tuple[:response].size)
         response[0] = 1u8
         response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
@@ -85,7 +84,6 @@ module MySync
         response[1, tuple[:response].size].copy_from tuple[:response]
         send_response response, is_login: true
       end
-      # and send response
     end
 
     private def send_response(data, *, is_login : Bool)

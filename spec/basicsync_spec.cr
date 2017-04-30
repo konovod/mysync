@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair(0)
+cli, udp_cli, srv, public_key = make_test_pair(0)
 
 it "test login" do
   udp_cli.login(public_key, "it_s_me".to_slice)
@@ -54,12 +54,12 @@ end
 it "debug_losses works on server" do
   cli.local_sync.data = "OKAY"
   cli.local_sync.num = 5
-  udp_srv.debug_loss = true
+  srv.debug_loss = true
   one_exchange(cli, udp_cli)
   srv.state.all_data[5].should eq "OKAY"
   one_exchange(cli, udp_cli)
   cli.remote_sync.all_data[5].should_not eq "OKAY"
-  udp_srv.debug_loss = false
+  srv.debug_loss = false
   one_exchange(cli, udp_cli)
   cli.remote_sync.all_data[5].should eq "OKAY"
 end
@@ -111,12 +111,12 @@ it "disconnects old clients" do
   # worsen latter reconnect
   SpecLogger.dump_events
   SpecLogger.dump_events.size.should eq 0
-  udp_srv.n_clients.should eq 1
-  udp_srv.disconnect_delay = 0.01.seconds
+  srv.n_clients.should eq 1
+  srv.disconnect_delay = 0.01.seconds
   sleep(0.5.seconds)
-  udp_srv.n_clients.should eq 0
+  srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: it_s_another", "SERVER: connection complete"]
-  udp_srv.disconnect_delay = 0.1.seconds
+  srv.disconnect_delay = 0.1.seconds
 end
 
 udp_cli.disconnect_timeout = 0.2.seconds
@@ -164,7 +164,7 @@ end
 
 N = 20
 it "process multiple connections" do
-  udp_srv.disconnect_delay = 1.seconds
+  srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
   N.times do
     acli = TestClientEndpoint.new
@@ -187,5 +187,5 @@ it "process multiple connections" do
 end
 
 # cleanup to prevent disconnect messages in next specs
-udp_srv.disconnect_delay = 0.01.seconds
+srv.disconnect_delay = 0.01.seconds
 sleep 0.25

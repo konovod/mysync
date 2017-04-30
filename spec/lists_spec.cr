@@ -139,7 +139,7 @@ srv_list = ServerPlayersList.new
 cli_list2 = ClientBulletsList.new
 srv_list2 = ServerBulletsList.new
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair(3)
+cli, udp_cli, srv, public_key = make_test_pair(3)
 cli.sync_lists << cli_list
 srv.sync_lists << srv_list
 cli.sync_lists << cli_list2
@@ -196,7 +196,7 @@ end
 it "syncs adding in case of packets loss" do
   old = srv_list.all_players[0].name
   srv_list.new_player("test3", 99)
-  udp_srv.debug_loss = true
+  srv.debug_loss = true
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   udp_cli.debug_loss = true
@@ -204,7 +204,7 @@ it "syncs adding in case of packets loss" do
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 1
-  udp_srv.debug_loss = false
+  srv.debug_loss = false
   udp_cli.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players.size.should eq 3
@@ -216,11 +216,11 @@ it "syncs deleting in case of packets loss" do
   name = srv_list.all_players[0].name
   srv_list.delete_player(srv_list.all_players[0])
   cli_list.players[0].name.should eq name
-  udp_srv.debug_loss = true
+  srv.debug_loss = true
   one_exchange(cli, udp_cli)
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should eq name
-  udp_srv.debug_loss = false
+  srv.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should eq name
   cli_list.fading_delay = 0.01.seconds
@@ -319,7 +319,7 @@ it "benchmark of lists" do
   if srv_list2.all_bullets.size < 1000
     (1000 - srv_list2.all_bullets.size).times { |i| srv_list2.new_bullet(-i) }
   end
-  udp_srv.disconnect_delay = 2.seconds
+  srv.disconnect_delay = 2.seconds
   clients = [] of TestClientEndpoint
   N1.times do
     acli = TestClientEndpoint.new

@@ -8,12 +8,6 @@ require "./payloads/lists"
 require "./payloads/sync"
 
 module MySync
-  module EndPointFactory
-    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint?, response: Bytes}
-    abstract def on_connecting(ip : Address)
-    abstract def on_disconnecting(ip : Address, ex : Exception?)
-  end
-
   MAX_PACKAGE_SIZE = 1024
 
   @[Packed]

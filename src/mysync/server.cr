@@ -5,14 +5,17 @@ require "./network"
 require "./utils/package"
 require "./utils/every"
 require "./server_connection"
+require "./auth"
 
 module MySync
-  class UDPGameServer
+  abstract class GameServer
     @header : UInt32*
     property disconnect_delay
     property debug_loss = false
 
-    def initialize(@endpoint_factory : EndPointFactory, @port : Int32, @secret_key : Crypto::SecretKey)
+    # getter users : UsersStorage
+
+    def initialize(@port : Int32, @secret_key : Crypto::SecretKey)
       @disconnect_delay = Time::Span.new(0, 0, 1)
       @connections = Hash(AddressHash, GameConnection).new
       @banned = Set(Address).new
@@ -23,6 +26,14 @@ module MySync
       spawn { listen_fiber }
       spawn { timed_fiber }
     end
+
+    def on_connecting(ip : Address)
+    end
+
+    def on_disconnecting(ip : Address, ex : Exception?)
+    end
+
+    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint?, response: Bytes}
 
     def gen_key(client_public : Crypto::PublicKey) : Crypto::SymmetricKey
       Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: client_public)
@@ -36,15 +47,16 @@ module MySync
       # cleanup_connections
       conn1 = @connections[MySync.addr_hash(ip)]?
       return conn1 if conn1
-      @endpoint_factory.on_connecting(ip)
-      conn2 = GameConnection.new(ip, @socket, @endpoint_factory, self)
+      on_connecting(ip)
+      conn2 = GameConnection.new(ip, @socket, self)
       @connections[MySync.addr_hash(ip)] = conn2
       spawn do
         begin
           conn2.execute
-          @endpoint_factory.on_disconnecting(ip, nil)
+          on_disconnecting(ip, nil)
+          # TODO - return? why was it commented?
           # rescue ex
-          # @endpoint_factory.on_disconnecting(ip, ex)
+          #   on_disconnecting(ip, ex)
         ensure
           @connections.delete(MySync.addr_hash(ip))
         end

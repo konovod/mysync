@@ -73,8 +73,7 @@ class TestUserContext < MySync::EndPoint
   end
 end
 
-class TestServer
-  include MySync::EndPointFactory
+class TestServer < MySync::GameServer
   property state = TestServerOutput.new
   getter test_endpoint : MySync::EndPoint?
 
@@ -166,13 +165,12 @@ def make_test_pair(crunch)
   secret_key = Crypto::SecretKey.new
   public_key = Crypto::PublicKey.new(secret: secret_key)
 
-  srv = TestServer.new
-  udp_srv = MySync::UDPGameServer.new(srv, 12000 + crunch, secret_key)
-  udp_srv.disconnect_delay = 1.minutes
+  srv = TestServer.new(12000 + crunch, secret_key)
+  srv.disconnect_delay = 1.minutes
 
   cli = TestClientEndpoint.new
   udp_cli = TestingClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000 + crunch))
   udp_cli.login(public_key, Bytes.new(0))
 
-  return {cli, udp_cli, srv, udp_srv, public_key}
+  return {cli, udp_cli, srv, public_key}
 end

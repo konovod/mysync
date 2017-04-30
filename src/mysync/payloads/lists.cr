@@ -3,7 +3,7 @@ require "../endpoint_types"
 require "../utils/uniqid"
 
 module MySync
-  module EndPointFactory
+  abstract class GameServer
     getter sync_lists = SyncListsManager.new
   end
 

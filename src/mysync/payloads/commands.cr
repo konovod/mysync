@@ -3,7 +3,7 @@ require "../circular"
 require "../endpoint_types"
 
 module MySync
-  module EndPointFactory
+  abstract class GameServer
     getter rpc_manager = Cannon::Rpc::Manager.new
   end
 

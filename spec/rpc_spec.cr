@@ -50,7 +50,7 @@ class FromServerClient
   include Cannon::Rpc::RemoteService(FromServerDescription)
 end
 
-cli, udp_cli, srv, udp_srv, public_key = make_test_pair(1)
+cli, udp_cli, srv, public_key = make_test_pair(1)
 udp_cli.login(public_key, Bytes.new(1))
 one_login(udp_cli)
 srv_inst = srv.test_endpoint.not_nil!
@@ -147,13 +147,13 @@ end
 it "rpc without response with loses #2" do
   SpecLogger.dump_events
   greeter.no_answer_without_response "test1"
-  udp_srv.debug_loss = true
+  srv.debug_loss = true
   5.times do
     one_exchange(cli, udp_cli)
   end
   sleep 0.2
   greeter.no_answer_without_response "test2"
-  udp_srv.debug_loss = false
+  srv.debug_loss = false
   20.times do
     one_exchange(cli, udp_cli)
   end
@@ -163,7 +163,7 @@ end
 it "rpc with response" do
   done = Channel(Nil).new
   udp_cli.debug_loss = true
-  udp_srv.debug_loss = true
+  srv.debug_loss = true
   udp_cli.autosend_delay = 0.05.seconds
   udp_cli.autologin_delay = 0.05.seconds
   spawn do
@@ -177,7 +177,7 @@ it "rpc with response" do
   sleep 0.2
   udp_cli.debug_loss = false
   sleep 0.2
-  udp_srv.debug_loss = false
+  srv.debug_loss = false
   done.receive
 end
 
