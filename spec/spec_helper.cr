@@ -77,7 +77,7 @@ class TestUsers < MySync::UsersStorage
   @data = Hash(String, MySync::UserData).new
 
   def add_user(login : String, salt : Crypto::Salt, hash : Crypto::SecretKey)
-    @data[login] = {salt: salt, hash: hash, userid: @data.size}
+    @data[login] = {salt: salt, hash: hash, id: @data.size}
   end
 
   def find_user(login : String) : MySync::UserData?
@@ -88,6 +88,14 @@ class TestUsers < MySync::UsersStorage
       SpecLogger.log_srv "failed to log in: #{login}"
       return nil
     end
+  end
+
+  def demo_add_user(login, pass)
+    salt = Crypto::Salt.new
+    # hash = Crypto::SecretKey.new(password: pass, salt: salt)
+    hash = Crypto::SecretKey.new
+    add_user login, salt, hash
+    return hash
   end
 end
 
@@ -179,5 +187,5 @@ def make_test_pair(crunch)
   udp_cli = TestingClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000 + crunch))
   udp_cli.login(public_key, "testuser", "testpass")
 
-  return {cli, udp_cli, srv, public_key}
+  return {cli, udp_cli, srv, public_key, users}
 end

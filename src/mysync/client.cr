@@ -170,8 +170,6 @@ module MySync
       @last_response = Time.now
       if @received_decrypted.slice[0] == 1
         # all is fine, start listening
-        @login_key.reroll
-        @symmetric_key.to_slice.copy_from @received_decrypted.slice[1, Crypto::SymmetricKey.size]
         # data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size - 1)
         # data.copy_from @received_decrypted.slice[1 + Crypto::SymmetricKey.size, data.size]
         @last_response = Time.now
