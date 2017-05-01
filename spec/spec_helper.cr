@@ -73,26 +73,33 @@ class TestUserContext < MySync::EndPoint
   end
 end
 
+class TestUsers < MySync::UsersStorage
+  @data = Hash(String, MySync::UserData).new
+
+  def add_user(login : String, salt : Crypto::Salt, hash : Crypto::SecretKey)
+    @data[login] = {salt: salt, hash: hash, userid: @data.size}
+  end
+
+  def find_user(login : String) : MySync::UserData?
+    if found = @data[login]?
+      SpecLogger.log_srv "logged in: #{login}"
+      return found
+    else
+      SpecLogger.log_srv "failed to log in: #{login}"
+      return nil
+    end
+  end
+end
+
 class TestServer < MySync::GameServer
   property state = TestServerOutput.new
   getter test_endpoint : MySync::EndPoint?
 
-  def new_endpoint(authdata : Bytes) : {endpoint: MySync::EndPoint?, response: Bytes}
-    username = String.new(authdata)
-    if username == "INVALID"
-      SpecLogger.log_srv "failed to log in: #{username}"
-      {endpoint: nil, response: "you_won't_pass".to_slice}
-    else
-      SpecLogger.log_srv "logged in: #{username}"
-      userid = 2
-      point = TestUserContext.new(self, userid, username)
-      @test_endpoint = point
-      {endpoint: point, response: "you_can_pass".to_slice}
-    end
+  def new_endpoint(user : MySync::UserID) : MySync::EndPoint
+    TestUserContext.new(self, user % 16, "user#{user}").tap { |pt| @test_endpoint = pt }
   end
 
   def on_connecting(ip : Socket::IPAddress)
-    # p "adding connection #{ip}"
     SpecLogger.log_srv "adding connection"
   end
 
@@ -101,7 +108,6 @@ class TestServer < MySync::GameServer
       p "connection #{ip} raised #{ex}"
       SpecLogger.log_srv "connection raised"
     else
-      # p "connection #{ip} complete"
       SpecLogger.log_srv "connection complete"
     end
   end
@@ -164,8 +170,8 @@ end
 def make_test_pair(crunch)
   secret_key = Crypto::SecretKey.new
   public_key = Crypto::PublicKey.new(secret: secret_key)
-
-  srv = TestServer.new(12000 + crunch, secret_key)
+  users = TestUsers.new
+  srv = TestServer.new(users, 12000 + crunch, secret_key)
   srv.disconnect_delay = 1.minutes
 
   cli = TestClientEndpoint.new

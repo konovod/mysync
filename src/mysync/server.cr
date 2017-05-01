@@ -8,14 +8,13 @@ require "./server_connection"
 require "./auth"
 
 module MySync
-  abstract class GameServer
+  class GameServer
     @header : UInt32*
     property disconnect_delay
     property debug_loss = false
+    getter users : UsersStorage
 
-    # getter users : UsersStorage
-
-    def initialize(@port : Int32, @secret_key : Crypto::SecretKey)
+    def initialize(@users, @port : Int32, @secret_key : Crypto::SecretKey)
       @disconnect_delay = Time::Span.new(0, 0, 1)
       @connections = Hash(AddressHash, GameConnection).new
       @banned = Set(Address).new
@@ -32,8 +31,6 @@ module MySync
 
     def on_disconnecting(ip : Address, ex : Exception?)
     end
-
-    abstract def new_endpoint(authdata : Bytes) : {endpoint: EndPoint?, response: Bytes}
 
     def gen_key(client_public : Crypto::PublicKey) : Crypto::SymmetricKey
       Crypto::SymmetricKey.new(our_secret: @secret_key, their_public: client_public)
@@ -69,15 +66,20 @@ module MySync
         size, ip = @socket.receive(@single_buffer)
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
-        next if @header.value != RIGHT_SIGN && @header.value != RIGHT_LOGIN_SIGN
+        next unless {RIGHT_SIGN, RIGHT_LOGIN_SIGN, RIGHT_PASS_SIGN}.includes? @header.value
         next if @banned.includes? ip
         conn = get_connection(ip)
         conn.received.size = size - 4
         conn.received.slice.copy_from @single_buffer[4, size - 4]
-        if @header.value == RIGHT_SIGN
+        case @header.value
+        when RIGHT_SIGN
           conn.control.send(ConnectionCommand::PacketReceived)
-        else
+        when RIGHT_LOGIN_SIGN
           conn.control.send(ConnectionCommand::LoginReceived)
+        when RIGHT_PASS_SIGN
+          conn.control.send(ConnectionCommand::PasswordReceived)
+        else
+          # impossible
         end
       end
     end

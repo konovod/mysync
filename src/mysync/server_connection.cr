@@ -8,6 +8,7 @@ require "./payloads/rpc"
 module MySync
   enum ConnectionCommand
     LoginReceived
+    PasswordReceived
     PacketReceived
     Close
   end
@@ -18,6 +19,7 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : EndPoint?
+    @login : String?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @server : GameServer)
@@ -55,6 +57,30 @@ module MySync
       send_response point.process_sending, is_login: false
     end
 
+    private def process_password_packet
+      # first it decrypts and check
+      return unless alogin = @login
+      return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
+      @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
+      return unless Crypto.decrypt(
+                      key: @symmetric_key,
+                      input: @received.slice,
+                      output: @received_decrypted.slice)
+      # check password and create endpoint
+      @last_message = Time.now
+      hash = Crypto::SecretKey.from_bytes(@received_decrypted.slice)
+      point = @server.authorize_2(alogin, hash)
+      unless point
+        respond_wrong_pass(alogin)
+        return
+      end
+      @endpoint = point
+      # now init common data
+      point.rpc_connection = CannonInterface.new point, @server.rpc_manager
+      point.sync_lists = @server.sync_lists
+      send_response point.process_sending, is_login: false
+    end
+
     private def process_login_packet
       # here is encrypted packet with client public key as additional data
       return if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
@@ -64,26 +90,36 @@ module MySync
       return unless Crypto.decrypt(
                       key: @login_key,
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
-                      # additional: @received.slice[0, Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
-      tuple = @server.new_endpoint(@received_decrypted.slice)
-      if point = tuple[:endpoint] # successful auth
-        @symmetric_key.reroll
-        @endpoint = point
-        # now init common data
-        point.rpc_connection = CannonInterface.new point, @server.rpc_manager
-        point.sync_lists = @server.sync_lists
-        response = Bytes.new(1 + Crypto::SymmetricKey.size + tuple[:response].size)
-        response[0] = 1u8
-        response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
-        response[1 + Crypto::SymmetricKey.size, tuple[:response].size].copy_from tuple[:response]
-        send_response response, is_login: true
-      else # not successful, with response
-        response = Bytes.new(1 + tuple[:response].size)
-        response[0] = 0u8
-        response[1, tuple[:response].size].copy_from tuple[:response]
-        send_response response, is_login: true
+      alogin = String.new(@received_decrypted.slice)
+      salt = @server.authorize_1(alogin)
+      unless salt
+        respond_wrong_login(alogin)
+        return
       end
+      @login = alogin
+      @last_message = Time.now
+      # successful auth, send symmetric key and salt
+      @symmetric_key.reroll
+      response = Bytes.new(1 + Crypto::SymmetricKey.size + Crypto::Salt.size)
+      response[0] = 1u8
+      response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
+      response[1 + Crypto::SymmetricKey.size, Crypto::Salt.size].copy_from salt.to_slice
+      send_response response, is_login: true
+    end
+
+    private def respond_wrong_login(alogin : String)
+      response = Bytes.new(1)
+      response[0] = 0u8
+      # response[1, tuple[:response].size].copy_from tuple[:response]
+      send_response response, is_login: true
+    end
+
+    private def respond_wrong_pass(alogin : String)
+      response = Bytes.new(1)
+      response[0] = 0u8
+      # response[1, tuple[:response].size].copy_from tuple[:response]
+      send_response response, is_login: false
     end
 
     private def send_response(data, *, is_login : Bool)
@@ -115,6 +151,8 @@ module MySync
         case cmd
         when ConnectionCommand::LoginReceived
           process_login_packet
+        when ConnectionCommand::PasswordReceived
+          process_password_packet
         when ConnectionCommand::PacketReceived
           process_data_packet
         when ConnectionCommand::Close

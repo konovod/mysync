@@ -5,6 +5,7 @@ cli, udp_cli, srv, public_key = make_test_pair(0)
 it "test login" do
   udp_cli.login(public_key, "it_s_me".to_slice)
   answer = one_login(udp_cli)
+  p SpecLogger.dump_events
   String.new(answer.not_nil!).should eq "you_can_pass"
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_me"]
 end
