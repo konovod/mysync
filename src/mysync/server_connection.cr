@@ -19,7 +19,7 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : EndPoint?
-    @login : String?
+    @user : UserData?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @server : GameServer)
@@ -58,7 +58,7 @@ module MySync
 
     private def process_password_packet
       # first it decrypts and check
-      return unless alogin = @login
+      return unless auser = @user
       return if @received.size - Crypto::OVERHEAD_SYMMETRIC <= 0
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(
@@ -68,9 +68,9 @@ module MySync
       # check password and create endpoint
       @last_message = Time.now
       hash = Crypto::SecretKey.from_bytes(@received_decrypted.slice)
-      point = @server.authorize_2(alogin, hash)
+      point = @server.authorize_2(auser, hash)
       unless point
-        send_response wrong_pass_response(alogin)
+        send_response wrong_pass_response(auser)
         return
       end
       @endpoint = point
@@ -93,20 +93,20 @@ module MySync
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
       alogin = String.new(@received_decrypted.slice)
-      salt = @server.authorize_1(alogin)
-      unless salt
+      auser = @server.authorize_1(alogin)
+      unless auser
         send_response wrong_login_response(alogin), key: login_key, sign: RIGHT_LOGIN_SIGN
         login_key.reroll # wipe it
         return
       end
-      @login = alogin
+      @user = auser
       @last_message = Time.now
       # successful auth, send symmetric key and salt
       @symmetric_key.reroll
       response = Bytes.new(1 + Crypto::SymmetricKey.size + Crypto::Salt.size)
       response[0] = 1u8
       response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
-      response[1 + Crypto::SymmetricKey.size, Crypto::Salt.size].copy_from salt.to_slice
+      response[1 + Crypto::SymmetricKey.size, Crypto::Salt.size].copy_from auser[:salt].to_slice
       send_response response, key: login_key, sign: RIGHT_LOGIN_SIGN
       login_key.reroll # wipe it
     end
@@ -117,7 +117,7 @@ module MySync
       response
     end
 
-    private def wrong_pass_response(alogin : String)
+    private def wrong_pass_response(auser : UserData)
       response = Bytes.new(1)
       response[0] = 0u8
       response
