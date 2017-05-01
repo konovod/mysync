@@ -3,10 +3,11 @@ require "./spec_helper"
 cli, udp_cli, srv, public_key = make_test_pair(0)
 
 it "test login" do
-  udp_cli.login(public_key, "it_s_me".to_slice)
+  udp_cli.login(public_key, "user1", "pass1")
   answer = one_login(udp_cli)
   p SpecLogger.dump_events
-  String.new(answer.not_nil!).should eq "you_can_pass"
+  # String.new(answer.not_nil!).should eq "you_can_pass"
+  answer.should be_true
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_me"]
 end
 
@@ -20,9 +21,10 @@ it "basic data exchange" do
 end
 
 it "can login again" do
-  udp_cli.login(public_key, "it_s_another".to_slice)
+  udp_cli.login(public_key, "user2", "pass2")
   answer = one_login(udp_cli)
-  String.new(answer.not_nil!).should eq "you_can_pass"
+  # String.new(answer.not_nil!).should eq "you_can_pass"
+  answer.should be_true
   SpecLogger.dump_events.should eq ["SERVER: logged in: it_s_another"]
 end
 srv_inst = srv.test_endpoint.not_nil!
@@ -133,7 +135,7 @@ end
 it "works with client on another port" do
   acli = TestClientEndpoint.new
   audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
-  audp_cli.login(public_key, Bytes.new(0))
+  audp_cli.login(public_key, "user3", "pass3")
   one_login(audp_cli)
   one_exchange(acli, audp_cli)
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: ", "CLIENT: sending", "CLIENT: received"]
@@ -149,17 +151,17 @@ it "works with restarted client on same port" do
   acli.rpc_connection = MySync::CannonInterface.new(acli, udp_cli.rpc_manager)
   acli.sync_lists = MySync::SyncListsManager.new
   udp_cli.endpoint = acli
-  udp_cli.login(public_key, "it_s_another2".to_slice)
+  udp_cli.login(public_key, "user2", "pass2")
   answer = one_login(udp_cli)
   one_exchange(cli, udp_cli)
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: it_s_another2", "CLIENT: sending", "CLIENT: received"]
 end
 
 it "rejects wrong login" do
-  udp_cli.login(public_key, "INVALID".to_slice)
+  udp_cli.login(public_key, "testuser", "wrongpass")
   answer = one_login(udp_cli)
-  String.new(answer.not_nil!).should eq "you_won't_pass"
-  udp_cli.auth_state.should eq MySync::AuthState::NotLoggedIn
+  answer.should be_false # eq "you_won't_pass"
+  udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
   SpecLogger.dump_events.should eq ["SERVER: failed to log in: INVALID"]
 end
 
@@ -167,10 +169,10 @@ N = 20
 it "process multiple connections" do
   srv.disconnect_delay = 1.seconds
   clients = [] of TestClientEndpoint
-  N.times do
+  N.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
-    audp_cli.login(public_key, Bytes.new(0))
+    audp_cli.login(public_key, "benchuser#{i}", "#{i}")
     one_login(audp_cli)
     acli.benchmark = 1000
     acli.benchmark_udp = audp_cli

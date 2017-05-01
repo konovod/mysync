@@ -77,7 +77,9 @@ module MySync
       # now init common data
       point.rpc_connection = CannonInterface.new point, @server.rpc_manager
       point.sync_lists = @server.sync_lists
-      send_response point.process_sending
+      # still send positive response, not usual
+      # send_response point.process_sending
+      send_response Bytes.new(1, 1u8)
     end
 
     private def process_login_packet
