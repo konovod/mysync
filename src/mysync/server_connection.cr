@@ -30,7 +30,6 @@ module MySync
       @header = @tosend.to_unsafe.as(UInt32*)
 
       @control = Channel(ConnectionCommand).new
-      @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
@@ -54,7 +53,7 @@ module MySync
       # then pass to endpoint
       @last_message = Time.now
       point.process_receive(@received_decrypted.slice)
-      send_response point.process_sending, is_login: false
+      send_response point.process_sending
     end
 
     private def process_password_packet
@@ -71,14 +70,14 @@ module MySync
       hash = Crypto::SecretKey.from_bytes(@received_decrypted.slice)
       point = @server.authorize_2(alogin, hash)
       unless point
-        respond_wrong_pass(alogin)
+        send_response wrong_pass_response(alogin)
         return
       end
       @endpoint = point
       # now init common data
       point.rpc_connection = CannonInterface.new point, @server.rpc_manager
       point.sync_lists = @server.sync_lists
-      send_response point.process_sending, is_login: false
+      send_response point.process_sending
     end
 
     private def process_login_packet
@@ -86,15 +85,16 @@ module MySync
       return if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
       akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
-      @login_key = @server.gen_key(akey)
+      login_key = @server.gen_key(akey)
       return unless Crypto.decrypt(
-                      key: @login_key,
+                      key: login_key,
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
       alogin = String.new(@received_decrypted.slice)
       salt = @server.authorize_1(alogin)
       unless salt
-        respond_wrong_login(alogin)
+        send_response wrong_login_response(alogin), key: login_key, sign: RIGHT_LOGIN_SIGN
+        login_key.reroll # wipe it
         return
       end
       @login = alogin
@@ -105,34 +105,31 @@ module MySync
       response[0] = 1u8
       response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
       response[1 + Crypto::SymmetricKey.size, Crypto::Salt.size].copy_from salt.to_slice
-      send_response response, is_login: true
+      send_response response, key: login_key, sign: RIGHT_LOGIN_SIGN
+      login_key.reroll # wipe it
     end
 
-    private def respond_wrong_login(alogin : String)
+    private def wrong_login_response(alogin : String)
       response = Bytes.new(1)
       response[0] = 0u8
-      # response[1, tuple[:response].size].copy_from tuple[:response]
-      send_response response, is_login: true
+      response
     end
 
-    private def respond_wrong_pass(alogin : String)
+    private def wrong_pass_response(alogin : String)
       response = Bytes.new(1)
       response[0] = 0u8
+      response
       # response[1, tuple[:response].size].copy_from tuple[:response]
-      send_response response, is_login: false
     end
 
-    private def send_response(data, *, is_login : Bool)
+    private def send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
+      unless key
+        key = @symmetric_key
+      end
       # then encrypt
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
-      if is_login
-        @header.value = RIGHT_LOGIN_SIGN
-        Crypto.encrypt(key: @login_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
-        @login_key.reroll
-      else
-        @header.value = RIGHT_SIGN
-        Crypto.encrypt(key: @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
-      end
+      @header.value = sign
+      Crypto.encrypt(key: key, input: data, output: @tosend.slice[4, @tosend.size - 4])
       # then send back
       return if @server.debug_loss
       begin
