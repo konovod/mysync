@@ -19,7 +19,7 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : EndPoint?
-    getter user : UserData?
+    getter user : AuthData?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @server : GameServer)
@@ -111,13 +111,13 @@ module MySync
       login_key.reroll # wipe it
     end
 
-    private def wrong_login_response(alogin : String)
+    private def wrong_login_response(alogin)
       response = Bytes.new(1)
       response[0] = 0u8
       response
     end
 
-    private def wrong_pass_response(auser : UserData)
+    private def wrong_pass_response(auser)
       response = Bytes.new(1)
       response[0] = 0u8
       response

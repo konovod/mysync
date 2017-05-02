@@ -90,6 +90,10 @@ class TestUsers < MySync::UsersStorage
     end
   end
 
+  def allow_registration(login : String)
+    false
+  end
+
   def demo_add_user(login, pass)
     salt = Crypto::Salt.new
     # hash = Crypto::SecretKey.new(password: pass, salt: salt)
