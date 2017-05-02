@@ -59,6 +59,15 @@ module MySync
       spawn { auto_sending_fiber }
     end
 
+    def save_hash
+      case @login_pass
+      when Crypto::SecretKey
+        return @login_pass
+      else
+        return nil
+      end
+    end
+
     private def package_received(package : Bytes)
       # first it decrypts and check
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
@@ -90,6 +99,7 @@ module MySync
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
         package = @raw_received[4, size - 4]
+        # p "recv #{@auth_state}"
         case @auth_state
         when AuthState::SendingLogin
           login_received(package) if @received_header.value == RIGHT_LOGIN_SIGN
@@ -98,6 +108,7 @@ module MySync
         when AuthState::LoggedIn
           package_received (package) if @received_header.value == RIGHT_SIGN
         else
+          # p "failed #{@auth_state}"
           # ignored
         end
       end
@@ -109,6 +120,7 @@ module MySync
         if Time.now - @last_response > @disconnect_timeout && @auth_state.restartable?
           @auth_state = AuthState::SendingLogin
         end
+        # p "sending #{@auth_state}"
         case @auth_state
         when AuthState::SendingLogin
           send_login
@@ -206,7 +218,15 @@ module MySync
       when Crypto::SecretKey
         data = pass_data.to_slice
       when String
-        data = Crypto::SecretKey.new(password: pass_data, salt: @login_salt).to_slice
+        # p "starting KDF"
+        key = Crypto::SecretKey.new(password: pass_data, salt: @login_salt)
+        # p "KDF done"
+        @login_pass = key
+        data = key.to_slice
+        # as it takes too much time anyway
+        # @auth_state = AuthState::SendingLogin
+        # send_manually
+        # return
       else
         raise "no pass info provided"
       end

@@ -167,13 +167,29 @@ it "rejects wrong login" do
   SpecLogger.dump_events
 end
 
+it "passwords actually hashed (slow)" do
+  login = "slowuser"
+  pass = "somepass"
+  salt = Crypto::Salt.new
+  hash = Crypto::SecretKey.new(password: pass, salt: salt)
+  users.add_user(login, salt, hash)
+  udp_cli.login(public_key, login, pass)
+
+  answer = one_login(udp_cli)
+  SpecLogger.dump_events.count("SERVER: logged in: slowuser").should be > 0
+  answer.should be_true
+  udp_cli.auth_state.should eq MySync::AuthState::LoggedIn
+  udp_cli.save_hash.should eq hash
+end
+
 it "rejects wrong password" do
   udp_cli.login(public_key, "user1", hash2)
   answer = one_login(udp_cli)
   answer.should be_false
   udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
+  SpecLogger.dump_events.count("SERVER: logged in: user1").should be > 0
   one_exchange(cli, udp_cli)
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user1"]
+  SpecLogger.dump_events.size.should eq 0
   sleep(0.5.seconds)
   SpecLogger.dump_events
 end
