@@ -194,19 +194,19 @@ it "rejects wrong password" do
   SpecLogger.dump_events
 end
 
-N = 20
+N1b = 100
+N2b = 100
 it "process multiple connections" do
   sleep(0.5.seconds)
   SpecLogger.dump_events
-  hashes = (0...N).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
+  hashes = (0...N1b).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
   srv.disconnect_delay = 5.seconds
   clients = [] of TestClientEndpoint
-  N.times do |i|
+  N1b.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
-    audp_cli.login(public_key, "benchuser#{i}", hashes[i])
-    one_login(audp_cli)
-    acli.benchmark = 1000
+    do_login(audp_cli, users, public_key, "basicbench#{i}")
+    acli.benchmark = N2b
     acli.benchmark_udp = audp_cli
     clients << acli
   end
@@ -217,7 +217,7 @@ it "process multiple connections" do
     acli.benchmark_complete.receive
   end
   t = clients.sum &.stat_pingtime
-  us = (t*1000000.0 / N / N).to_i
+  us = (t*1000000.0 / N1b / N1b).to_i
   p "time per packet: #{us} us"
 end
 

@@ -139,14 +139,13 @@ srv_list = ServerPlayersList.new
 cli_list2 = ClientBulletsList.new
 srv_list2 = ServerBulletsList.new
 
-cli, udp_cli, srv, public_key = make_test_pair(3)
+cli, udp_cli, srv, public_key, users = make_test_pair(3)
 cli.sync_lists << cli_list
 srv.sync_lists << srv_list
 cli.sync_lists << cli_list2
 srv.sync_lists << srv_list2
 
-udp_cli.login(public_key, Bytes.new(1))
-one_login(udp_cli)
+do_login(udp_cli, users, public_key, "lists")
 srv_inst = srv.test_endpoint.not_nil!
 
 it "starts empty" do
@@ -321,13 +320,12 @@ it "benchmark of lists" do
   end
   srv.disconnect_delay = 2.seconds
   clients = [] of TestClientEndpoint
-  N1.times do
+  N1.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 3))
     acli.sync_lists << ClientPlayersList.new
     acli.sync_lists << ClientBulletsList.new
-    audp_cli.login(public_key, Bytes.new(0))
-    one_login(audp_cli)
+    do_login(audp_cli, users, public_key, "listsbench#{i}")
     acli.benchmark = N2
     # acli.fading_delay = 2.seconds
     acli.benchmark_udp = audp_cli

@@ -176,6 +176,12 @@ class TestingClient < MySync::UDPGameClient
   end
 end
 
+def do_login(udp_cli, users, public_key, login)
+  hash = users.demo_add_user(login, login)
+  udp_cli.login(public_key, login, hash)
+  one_login(udp_cli)
+end
+
 def make_test_pair(crunch)
   secret_key = Crypto::SecretKey.new
   public_key = Crypto::PublicKey.new(secret: secret_key)
@@ -186,7 +192,6 @@ def make_test_pair(crunch)
 
   cli = TestClientEndpoint.new
   udp_cli = TestingClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000 + crunch))
-  udp_cli.login(public_key, "testuser", "testpass")
 
   return {cli, udp_cli, srv, public_key, users}
 end

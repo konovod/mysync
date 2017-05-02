@@ -50,9 +50,8 @@ class FromServerClient
   include Cannon::Rpc::RemoteService(FromServerDescription)
 end
 
-cli, udp_cli, srv, public_key = make_test_pair(1)
-udp_cli.login(public_key, Bytes.new(1))
-one_login(udp_cli)
+cli, udp_cli, srv, public_key, users = make_test_pair(1)
+do_login(udp_cli, users, public_key, "rpc")
 srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!
