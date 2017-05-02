@@ -98,7 +98,7 @@ module MySync
         when AuthState::LoggedIn
           package_received (package) if @received_header.value == RIGHT_SIGN
         else
-          # ignore
+          # ignored
         end
       end
     end
@@ -155,6 +155,7 @@ module MySync
     def wait_login : Bool
       raise "autologin_delay should be set" unless @autologin_delay
       @auth_state = MySync::AuthState::SendingLogin
+      # send_manually
       loop do
         Fiber.yield
         return true if @auth_state == MySync::AuthState::LoggedIn
@@ -229,7 +230,7 @@ module MySync
         @login_salt = Crypto::Salt.from_bytes @received_decrypted.slice[1 + Crypto::SymmetricKey.size, Crypto::Salt.size]
         @last_response = Time.now
         @auth_state = AuthState::SendingPass
-        # @endpoint.reset
+        send_manually
       else
         # auth failed with a reason
         # data = Bytes.new(@received_decrypted.size - 1)

@@ -64,7 +64,6 @@ module MySync
     private def listen_fiber
       loop do
         size, ip = @socket.receive(@single_buffer)
-        p "any: #{ip}"
         next if size < MIN_RAW_SIZE
         next if size > MAX_RAW_SIZE
         next unless {RIGHT_SIGN, RIGHT_LOGIN_SIGN, RIGHT_PASS_SIGN}.includes? @header.value
@@ -74,7 +73,6 @@ module MySync
         conn.received.slice.copy_from @single_buffer[4, size - 4]
         case @header.value
         when RIGHT_SIGN
-          p "recvd: #{ip}->#{conn.user.not_nil![:id]}"
           conn.control.send(ConnectionCommand::PacketReceived)
         when RIGHT_LOGIN_SIGN
           conn.control.send(ConnectionCommand::LoginReceived)

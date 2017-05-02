@@ -134,7 +134,7 @@ class TestClientEndpoint < MySync::EndPoint
   def on_received_package
     SpecLogger.log_cli "received" if @verbose
     if @benchmark > 0
-      p "received #{@benchmark}"
+      # p "received #{@benchmark}"
       @benchmark -= 1
       if @benchmark == 0
         @benchmark_complete.send(nil)

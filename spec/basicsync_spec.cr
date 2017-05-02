@@ -14,14 +14,14 @@ end
 
 srv_inst = srv.test_endpoint.not_nil!
 
-pending "basic data exchange" do
+it "basic data exchange" do
   cli.verbose = true
   srv_inst.verbose = true
   one_exchange(cli, udp_cli)
   SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received", "SERVER: sending", "CLIENT: received"]
 end
 
-pending "can login again" do
+it "can login again" do
   udp_cli.login(public_key, "user2", hash2)
   answer = one_login(udp_cli)
   answer.should be_true
@@ -29,7 +29,7 @@ pending "can login again" do
 end
 srv_inst = srv.test_endpoint.not_nil!
 
-pending "passed data are applied" do
+it "passed data are applied" do
   cli.local_sync.data = "hello"
   cli.local_sync.num = 5
 
@@ -39,7 +39,7 @@ pending "passed data are applied" do
   cli.remote_sync.all_data[5].should eq "hello"
 end
 
-pending "debug_losses works on client" do
+it "debug_losses works on client" do
   cli.local_sync.data = "HELLO"
   cli.local_sync.num = 5
   udp_cli.debug_loss = true
@@ -54,7 +54,7 @@ pending "debug_losses works on client" do
   cli.remote_sync.all_data[5].should eq "HELLO"
 end
 
-pending "debug_losses works on server" do
+it "debug_losses works on server" do
   cli.local_sync.data = "OKAY"
   cli.local_sync.num = 5
   srv.debug_loss = true
@@ -68,7 +68,7 @@ pending "debug_losses works on server" do
 end
 
 # TODO - specs for ack_mask
-pending "update seq_iq" do
+it "update seq_iq" do
   cli.local_seq = 5u16
   cli.remote_seq = 15u16
   srv_inst.local_seq = 18u16
@@ -85,7 +85,7 @@ pending "update seq_iq" do
   cli.remote_seq.should eq 20u16
 end
 
-pending "process faraway packets" do
+it "process faraway packets" do
   cli.verbose = true
   srv_inst.verbose = true
   SpecLogger.dump_events
@@ -97,7 +97,7 @@ pending "process faraway packets" do
   SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received", "SERVER: sending", "CLIENT: received"]
 end
 
-pending "gather stats for packets" do
+it "gather stats for packets" do
   cli.verbose = false
   srv_inst.verbose = false
   cur = Time.now
@@ -110,7 +110,7 @@ pending "gather stats for packets" do
   pp cli.stat_pingtime*1000
 end
 
-pending "disconnects old clients" do
+it "disconnects old clients" do
   # worsen latter reconnect
   SpecLogger.dump_events
   SpecLogger.dump_events.size.should eq 0
@@ -124,7 +124,7 @@ end
 
 udp_cli.disconnect_timeout = 0.2.seconds
 
-pending "client relogins on timeout" do
+it "client relogins on timeout" do
   cli.verbose = true
   srv_inst.verbose = true
   one_login(udp_cli)
@@ -132,7 +132,7 @@ pending "client relogins on timeout" do
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
 end
 
-pending "works with client on another port" do
+it "works with client on another port" do
   acli = TestClientEndpoint.new
   audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
   audp_cli.login(public_key, "user3", hash3)
@@ -141,7 +141,7 @@ pending "works with client on another port" do
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user3", "CLIENT: sending", "CLIENT: received"]
 end
 
-pending "works with restarted client on same port" do
+it "works with restarted client on same port" do
   sleep(0.5.seconds)
   SpecLogger.dump_events
   cli.verbose = true
@@ -157,7 +157,7 @@ pending "works with restarted client on same port" do
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
 end
 
-pending "rejects wrong login" do
+it "rejects wrong login" do
   udp_cli.login(public_key, "testuser", hash1)
   answer = one_login(udp_cli)
   answer.should be_false
@@ -167,7 +167,7 @@ pending "rejects wrong login" do
   SpecLogger.dump_events
 end
 
-pending "rejects wrong password" do
+it "rejects wrong password" do
   udp_cli.login(public_key, "user1", hash2)
   answer = one_login(udp_cli)
   answer.should be_false
@@ -178,10 +178,10 @@ pending "rejects wrong password" do
   SpecLogger.dump_events
 end
 
-sleep(0.5.seconds)
-SpecLogger.dump_events
-N = 15
+N = 20
 it "process multiple connections" do
+  sleep(0.5.seconds)
+  SpecLogger.dump_events
   hashes = (0...N).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
   srv.disconnect_delay = 5.seconds
   clients = [] of TestClientEndpoint
@@ -190,11 +190,10 @@ it "process multiple connections" do
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
     audp_cli.login(public_key, "benchuser#{i}", hashes[i])
     one_login(audp_cli)
-    acli.benchmark = 4
+    acli.benchmark = 1000
     acli.benchmark_udp = audp_cli
     clients << acli
   end
-  p SpecLogger.dump_events
   clients.each do |acli|
     acli.benchmark_udp.not_nil!.send_manually
   end
