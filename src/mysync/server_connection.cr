@@ -19,7 +19,7 @@ module MySync
     getter control
     getter last_message : Time
     getter endpoint : EndPoint?
-    @user : UserData?
+    getter user : UserData?
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @server : GameServer)

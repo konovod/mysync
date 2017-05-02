@@ -104,7 +104,7 @@ class TestServer < MySync::GameServer
   getter test_endpoint : MySync::EndPoint?
 
   def new_endpoint(user : MySync::UserID) : MySync::EndPoint
-    TestUserContext.new(self, user % 16, "user#{user}").tap { |pt| @test_endpoint = pt }
+    TestUserContext.new(self, user % 16, "person#{user + 1}").tap { |pt| @test_endpoint = pt }
   end
 
   def on_connecting(ip : Socket::IPAddress)
@@ -134,6 +134,7 @@ class TestClientEndpoint < MySync::EndPoint
   def on_received_package
     SpecLogger.log_cli "received" if @verbose
     if @benchmark > 0
+      p "received #{@benchmark}"
       @benchmark -= 1
       if @benchmark == 0
         @benchmark_complete.send(nil)
