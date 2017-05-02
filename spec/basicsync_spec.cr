@@ -167,7 +167,7 @@ it "rejects wrong login" do
   SpecLogger.dump_events
 end
 
-it "passwords actually hashed (slow)" do
+it "passwords actually hashed" do
   login = "slowuser"
   pass = "somepass"
   salt = Crypto::Salt.new
@@ -183,6 +183,7 @@ it "passwords actually hashed (slow)" do
 end
 
 it "rejects wrong password" do
+  users.registration_open = true
   udp_cli.login(public_key, "user1", hash2)
   answer = one_login(udp_cli)
   answer.should be_false
@@ -192,6 +193,22 @@ it "rejects wrong password" do
   SpecLogger.dump_events.size.should eq 0
   sleep(0.5.seconds)
   SpecLogger.dump_events
+  users.registration_open = false
+end
+
+it "allows auto-registration" do
+  users.registration_open = true
+  login = "newuser"
+  pass = "nopass"
+  udp_cli.login(public_key, login, pass)
+  answer = one_login(udp_cli)
+  SpecLogger.dump_events.count("SERVER: logged in: newuser").should be > 0
+  answer.should be_true
+  udp_cli.auth_state.should eq MySync::AuthState::LoggedIn
+  udp_cli.save_hash.should eq users.data[login][:hash]
+  users.registration_open = false
+  one_exchange(cli, udp_cli)
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received"]
 end
 
 N1b = 100

@@ -74,7 +74,8 @@ class TestUserContext < MySync::EndPoint
 end
 
 class TestUsers < MySync::UsersStorage
-  @data = Hash(String, MySync::UserData).new
+  property registration_open = false
+  getter data = Hash(String, MySync::UserData).new
 
   def add_user(login : String, salt : Crypto::Salt, hash : Crypto::SecretKey)
     @data[login] = {salt: salt, hash: hash, id: @data.size}
@@ -91,7 +92,7 @@ class TestUsers < MySync::UsersStorage
   end
 
   def allow_registration(login : String)
-    false
+    @registration_open
   end
 
   def demo_add_user(login, pass)

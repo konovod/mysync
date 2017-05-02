@@ -112,16 +112,11 @@ module MySync
     end
 
     private def wrong_login_response(alogin)
-      response = Bytes.new(1)
-      response[0] = 0u8
-      response
+      Bytes.new(1, 0u8)
     end
 
     private def wrong_pass_response(auser)
-      response = Bytes.new(1)
-      response[0] = 0u8
-      response
-      # response[1, tuple[:response].size].copy_from tuple[:response]
+      Bytes.new(1, 0u8)
     end
 
     private def send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
