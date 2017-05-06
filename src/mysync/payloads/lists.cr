@@ -66,13 +66,12 @@ module MySync
         flag
       end
     end
-
-    def initialize(@time : TimeProvider)
-    end
   end
 
   module SyncListData(T, FullState, DeltaState)
-    @items = Hash(MySync::ItemID, T).new
+    def initialize(@time : TimeProvider)
+      @items = Hash(MySync::ItemID, T).new
+    end
 
     def process_received(io : IO)
       while io.pos < io.size

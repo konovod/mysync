@@ -222,11 +222,11 @@ it "syncs deleting in case of packets loss" do
   srv.debug_loss = false
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should eq name
-  cli_list.fading_delay = 0.01.seconds
+  cli_list.fading_delay = 1
   sleep 0.1
   one_exchange(cli, udp_cli)
   cli_list.players[0].name.should_not eq name
-  cli_list.fading_delay = 1.seconds
+  cli_list.fading_delay = 60
 end
 
 it "syncing a second list" do
@@ -318,7 +318,7 @@ it "benchmark of lists" do
   if srv_list2.all_bullets.size < 1000
     (1000 - srv_list2.all_bullets.size).times { |i| srv_list2.new_bullet(-i) }
   end
-  srv.disconnect_delay = 2.seconds
+  srv.disconnect_delay = 2*60
   clients = [] of TestClientEndpoint
   N1.times do |i|
     acli = TestClientEndpoint.new

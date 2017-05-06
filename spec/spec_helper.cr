@@ -174,7 +174,7 @@ def one_exchange(cli, udp_cli)
 end
 
 def one_login(udp_cli)
-  udp_cli.autologin_delay = 1
+  udp_cli.autologin_delay = 10
   answer = udp_cli.wait_login
   udp_cli.autologin_delay = nil
   return answer
