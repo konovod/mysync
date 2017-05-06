@@ -1,6 +1,7 @@
 require "cannon"
 require "./endpoint_types"
 require "./circular"
+require "./time"
 require "./utils/stats"
 require "./payloads/commands"
 require "./payloads/rpc"
@@ -8,7 +9,7 @@ require "./payloads/lists"
 require "./payloads/sync"
 
 module MySync
-  MAX_PACKAGE_SIZE = 1024
+  MAX_PACKAGE_SIZE = 1280
 
   @[Packed]
   record PacketHeader, sequence : Sequence, ack : Sequence, ack_mask : AckMask do
@@ -28,12 +29,12 @@ module MySync
   # for remote we need only the fact that it passed
   abstract class EndPoint
     ackrecord RemoteAckData
-    ackrecord LocalAckData, sent : Time = Time.new, commands = [] of Command
+    ackrecord LocalAckData, sent : Time = Time.new(0), commands = [] of Command
 
     getter requested_disconnect : Bool
+    property time
 
-    def initialize
-      super
+    def initialize(@time : TimeProvider = TimeProvider.new)
       @requested_disconnect = false
       @io_received = MyMemory.new(1)
       @io_tosend = IO::Memory.new(MAX_PACKAGE_SIZE)
@@ -41,6 +42,7 @@ module MySync
       @local_acks = CircularAckBuffer(LocalAckData).new
       @tosend_async = IO::Memory.new(MAX_PACKAGE_SIZE)
       @tosend_lists = IO::Memory.new(MAX_PACKAGE_SIZE)
+      @cmd_buffer = CommandBuffer.new(@time)
     end
 
     def on_received_package
@@ -89,7 +91,7 @@ module MySync
     end
 
     private def packet_acked(id : Sequence, data : LocalAckData)
-      @ping_time.add(Time.now - data.sent)
+      @ping_time.add(-@time.delta(data.sent))
       acked_asyncs(data)
       acked_lists(id, true)
     end
@@ -134,7 +136,7 @@ module MySync
       end
       self.local_seq += 1
       cur_commands = [] of Command
-      @local_acks[self.local_seq] = LocalAckData.new(false, Time.now, cur_commands)
+      @local_acks[self.local_seq] = LocalAckData.new(false, @time.current, cur_commands)
       header = PacketHeader.new(self.local_seq, self.remote_seq, @remote_acks.passed_mask)
       Cannon.encode @io_tosend, header
 
@@ -159,7 +161,7 @@ module MySync
         @io_tosend.write(@tosend_async.to_slice[0, size_asyncs])
         @io_tosend.write(@tosend_lists.to_slice[0, size_lists])
         # and mark all data as sent
-        cur_commands.each { |cmd| cmd.sent = Time.now }
+        cur_commands.each { |cmd| cmd.sent = time.current }
         sync_lists.full_message_accepted(self)
       else
         # now we should shrink. first step is to limit asyncs to one command
@@ -167,7 +169,7 @@ module MySync
           cur_commands.pop(cur_commands.size - 1)
           limit_asyncs(@tosend_async, cur_commands, firstsize)
           @io_tosend.write(@tosend_async.to_slice[0, @tosend_async.pos])
-          firstcmd.sent = Time.now
+          firstcmd.sent = time.current
         else
           # slight optimization
           @io_tosend.write_bytes(CmdID.new(0))

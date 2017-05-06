@@ -23,7 +23,7 @@ module MySync
 
     def initialize(@address : Address, @socket : UDPSocket,
                    @server : GameServer)
-      @last_message = Time.now
+      @last_message = @server.time.current
       @received = Package.new(MAX_RAW_SIZE) # TODO - remove small tail?
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
       @tosend = Package.new(MAX_RAW_SIZE)
@@ -51,7 +51,7 @@ module MySync
                       input: @received.slice,
                       output: @received_decrypted.slice)
       # then pass to endpoint
-      @last_message = Time.now
+      @last_message = @server.time.current
       point.process_receive(@received_decrypted.slice)
       send_response point.process_sending
     end
@@ -66,7 +66,7 @@ module MySync
                       input: @received.slice,
                       output: @received_decrypted.slice)
       # check password and create endpoint
-      @last_message = Time.now
+      @last_message = @server.time.current
       hash = Crypto::SecretKey.from_bytes(@received_decrypted.slice)
       point = @server.authorize_2(auser, hash)
       unless point
@@ -79,7 +79,7 @@ module MySync
       point.sync_lists = @server.sync_lists
       # still send positive response, not usual
       # send_response point.process_sending
-      send_response Bytes.new(1, 1u8)
+      send_response Bytes.new(1, 1u8), sign: RIGHT_PASS_SIGN
     end
 
     private def process_login_packet
@@ -100,7 +100,7 @@ module MySync
         return
       end
       @user = auser
-      @last_message = Time.now
+      @last_message = @server.time.current
       # successful auth, send symmetric key and salt
       @symmetric_key.reroll
       response = Bytes.new(1 + Crypto::SymmetricKey.size + Crypto::Salt.size)

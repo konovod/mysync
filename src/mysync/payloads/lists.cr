@@ -49,7 +49,7 @@ module MySync
   # it receives packets and parse them to calls of `item_added`, `item_removed` and `item_updated`
   abstract class ClientSyncList
     @last_updated = Hash(ItemID, Time).new
-    property fading_delay : Time::Span = 2.seconds
+    property fading_delay : TimeDelta = 2*60
 
     abstract def process_received(io : IO)
     abstract def item_added(id : ItemID, data)
@@ -57,9 +57,8 @@ module MySync
     abstract def item_updated(item, data)
 
     def check_fading
-      actual = Time.now
-      @last_updated.reject! do |id, time|
-        flag = actual - time > fading_delay
+      @last_updated.reject! do |id, atime|
+        flag = @time.delta(atime) < -fading_delay
         if flag
           item = @items.delete(id)
           item_removed(item) if item
@@ -67,13 +66,15 @@ module MySync
         flag
       end
     end
+
+    def initialize(@time : TimeProvider)
+    end
   end
 
   module SyncListData(T, FullState, DeltaState)
     @items = Hash(MySync::ItemID, T).new
 
     def process_received(io : IO)
-      actual = Time.now
       while io.pos < io.size
         id = Cannon.decode(io, MySync::ItemID)
         break if id == 0
@@ -85,7 +86,7 @@ module MySync
             item_removed(old_item)
           end
           @items[id] = item_added(id, full)
-          @last_updated[id] = actual
+          @last_updated[id] = @time.current
         when MySync::ChangeType::ItemUpdate
           delta = Cannon.decode(io, DeltaState)
           item = @items[id]?
@@ -94,7 +95,7 @@ module MySync
           else
             p "ignoring failed delta" # TODO - better log?
           end
-          @last_updated[id] = actual
+          @last_updated[id] = @time.current
         when MySync::ChangeType::ItemDeletion
           item = @items.delete(id)
           @last_updated.delete(id)
@@ -146,7 +147,7 @@ module MySync
 
     private def actualize(who, state, id)
       data = state.items[id]? || PerItem.new.tap { |it| state.items[id] = it }
-      data.last_sent = Time.now
+      data.last_sent = who.time.current
       if !data.acked && !data.first_sent
         data.first_sent = who.local_seq
       end
@@ -155,7 +156,6 @@ module MySync
     # TODO: sort according to time? total mechanism of overflow processing
     def full_message_accepted(who : MySync::EndPoint)
       state = who.sync_lists_serverside[self]
-      actual = Time.now
       state.items.reject! { |id, value| state.cur_deleted.includes? id }
       state.cur_updated.each { |id| actualize(who, state, id) }
     end
@@ -165,7 +165,6 @@ module MySync
         who.sync_lists_serverside[self] = it
       end
       old_pos = io.pos
-      actual = Time.now
       # addition\update messages
       state.cur_updated.clear
       iterate_additions(io, who, state) do |item|

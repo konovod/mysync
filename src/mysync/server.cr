@@ -13,9 +13,10 @@ module MySync
     property disconnect_delay
     property debug_loss = false
     getter users : UsersStorage
+    getter time = TimeProvider.new
 
     def initialize(@users, @port : Int32, @secret_key : Crypto::SecretKey)
-      @disconnect_delay = Time::Span.new(0, 0, 1)
+      @disconnect_delay = TimeDelta.new(1*SECOND)
       @connections = Hash(AddressHash, GameConnection).new
       @banned = Set(Address).new
       @socket = UDPSocket.new(Socket::Family::INET)
@@ -85,7 +86,7 @@ module MySync
     end
 
     private def cleanup_connections
-      time = Time.now
+      time = @time.current
       @connections.delete_if do |addr, conn|
         dead = conn.should_die(time)
         conn.control.send(ConnectionCommand::Close) if dead
@@ -94,7 +95,8 @@ module MySync
     end
 
     private def timed_fiber
-      every(0.2.seconds) do
+      every(TICK) do
+        @time.current += 1
         cleanup_connections
       end
     end

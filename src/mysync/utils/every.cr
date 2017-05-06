@@ -8,6 +8,6 @@ def every(timespan, &block)
       passed -= timespan
       tick += timespan
     end
-    sleep({timespan - passed, 0.01.seconds}.max)
+    sleep({timespan - passed, 0.01.seconds}.max) # TODO - check if 0 passes specs
   end
 end

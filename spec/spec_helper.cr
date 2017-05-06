@@ -69,7 +69,7 @@ class TestUserContext < MySync::EndPoint
   end
 
   def initialize(@server : TestServer, @user : Int32, @username : String)
-    super()
+    super(@server.time)
   end
 end
 
@@ -108,7 +108,7 @@ class TestServer < MySync::GameServer
   property state = TestServerOutput.new
   getter test_endpoint : MySync::EndPoint?
 
-  def new_endpoint(user : MySync::UserID) : MySync::EndPoint
+  def new_endpoint(user : MySync::UserID, time : MySync::TimeProvider) : MySync::EndPoint
     TestUserContext.new(self, user % 16, "person#{user + 1}").tap { |pt| @test_endpoint = pt }
   end
 
@@ -123,6 +123,11 @@ class TestServer < MySync::GameServer
     else
       SpecLogger.log_srv "connection complete"
     end
+  end
+
+  def skip_time(nticks : MySync::TimeDelta)
+    @time.current += MySync::Time.new(nticks)
+    sleep(MySync::TICK*2)
   end
 end
 
@@ -169,7 +174,7 @@ def one_exchange(cli, udp_cli)
 end
 
 def one_login(udp_cli)
-  udp_cli.autologin_delay = 0.1.seconds
+  udp_cli.autologin_delay = 1
   answer = udp_cli.wait_login
   udp_cli.autologin_delay = nil
   return answer
@@ -193,7 +198,7 @@ def make_test_pair(crunch)
   users = TestUsers.new
 
   srv = TestServer.new(users, 12000 + crunch, secret_key)
-  srv.disconnect_delay = 1.minutes
+  srv.disconnect_delay = 1000
 
   cli = TestClientEndpoint.new
   udp_cli = TestingClient.new(cli, Socket::IPAddress.new("127.0.0.1", 12000 + crunch))

@@ -110,19 +110,20 @@ it "gather stats for packets" do
   pp cli.stat_pingtime*1000
 end
 
+srv.disconnect_delay = 10
 it "disconnects old clients" do
   # worsen latter reconnect
   SpecLogger.dump_events
   SpecLogger.dump_events.size.should eq 0
   srv.n_clients.should eq 1
-  srv.disconnect_delay = 0.01.seconds
-  sleep(0.5.seconds)
+  srv.skip_time(5)
+  srv.n_clients.should eq 1
+  srv.skip_time(6)
   srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: person2", "SERVER: connection complete"]
-  srv.disconnect_delay = 0.1.seconds
 end
 
-udp_cli.disconnect_timeout = 0.2.seconds
+udp_cli.disconnect_timeout = 10
 
 it "client relogins on timeout" do
   cli.verbose = true
@@ -217,7 +218,7 @@ it "process multiple connections" do
   sleep(0.5.seconds)
   SpecLogger.dump_events
   hashes = (0...N1b).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
-  srv.disconnect_delay = 5.seconds
+  srv.disconnect_delay = 5*60
   clients = [] of TestClientEndpoint
   N1b.times do |i|
     acli = TestClientEndpoint.new
@@ -239,5 +240,4 @@ it "process multiple connections" do
 end
 
 # cleanup to prevent disconnect messages in next specs
-srv.disconnect_delay = 0.01.seconds
-sleep 0.25
+srv.skip_time(1000)

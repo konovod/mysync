@@ -28,18 +28,18 @@ module MySync
       case user
       when UserData
         if user[:hash].compare(hash)
-          return new_endpoint(user[:id])
+          return new_endpoint(user[:id], @time)
         else
           return nil
         end
       when Registration
         u = @users.add_user(user[:login], user[:salt], hash)
-        return new_endpoint(u[:id])
+        return new_endpoint(u[:id], @time)
       else
         return nil
       end
     end
 
-    abstract def new_endpoint(user : UserID) : EndPoint
+    abstract def new_endpoint(user : UserID, time : TimeProvider) : EndPoint
   end
 end

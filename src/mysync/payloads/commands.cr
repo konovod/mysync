@@ -11,7 +11,7 @@ module MySync
     ackrecord RemoteMessage
 
     property! rpc_connection : CannonInterface
-    getter cmd_buffer = CommandBuffer.new
+    getter cmd_buffer
     # TODO - it's still used in reset
     @remote_message_acks = CircularAckBuffer(RemoteMessage).new
 
@@ -43,8 +43,7 @@ module MySync
     def send_asyncs(io, cur_commands)
       # TODO - slicing big commands?
       first = {nil, 0}
-      time = Time.now
-      @cmd_buffer.each_applicable(time) do |cmd|
+      @cmd_buffer.each_applicable do |cmd|
         io.write_bytes(cmd.id)
         io.write_bytes(CmdSize.new(cmd.data.size))
         io.write(cmd.data.to_slice)
@@ -64,7 +63,7 @@ module MySync
 
   # TODO - later optimize to single buffer
   # record Command, offset : Int32, size : Int32
-  RESEND_TIME = (0.2).seconds
+  RESEND_TIME = SECOND / 5
   alias CmdSize = UInt8
   alias CmdID = Sequence
 
@@ -73,13 +72,13 @@ module MySync
     property sent : Time
     getter id
 
-    def initialize(@id : CmdID, @data : Bytes)
-      @sent = Time.now - RESEND_TIME*2
+    def initialize(@id : CmdID, @data : Bytes, atime)
+      @sent = atime.current - RESEND_TIME*2
     end
   end
 
   class CommandBuffer
-    def initialize
+    def initialize(@time : TimeProvider)
       @commands = Array(Command).new
       @last_sent_id = CmdID.new(0)
     end
@@ -87,7 +86,7 @@ module MySync
     def add(data : Bytes) : Nil
       @last_sent_id += 1
       @last_sent_id += 1 if @last_sent_id == 0
-      cmd = Command.new(@last_sent_id, data)
+      cmd = Command.new(@last_sent_id, data, @time)
       @commands << cmd
     end
 
@@ -95,9 +94,9 @@ module MySync
       @commands.delete cmd
     end
 
-    def each_applicable(time : Time, &block)
+    def each_applicable(&block)
       @commands.each do |cmd|
-        yield(cmd) if time - cmd.sent >= RESEND_TIME
+        yield(cmd) if @time.delta(cmd.sent) <= -RESEND_TIME
       end
     end
   end

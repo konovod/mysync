@@ -24,15 +24,16 @@ module MySync
     getter rpc_manager
     getter auth_state
     property debug_loss = false
-    property autosend_delay : Time::Span?
-    property autologin_delay : Time::Span?
-    property disconnect_timeout : Time::Span
+    property autosend_delay : TimeDelta?
+    property autologin_delay : TimeDelta?
+    property disconnect_timeout : TimeDelta
     @server_key : Crypto::PublicKey?
     @login_pass : (Crypto::SecretKey | String | Nil) = nil
+    @time : TimeProvider
 
     def initialize(@endpoint : EndPoint, @address : Address)
       @socket = UDPSocket.new
-      @socket.read_timeout = Time::Span.new(0, 0, 1)
+      @socket.read_timeout = CrystalTime::Span.new(0, 0, 1)
       @socket.connect @address
       @raw_received = Bytes.new(MAX_RAW_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -42,21 +43,22 @@ module MySync
       @rpc_manager = Cannon::Rpc::Manager.new
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
       @endpoint.sync_lists = SyncListsManager.new
+      @time = @endpoint.time
       @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new
       @auth_state = AuthState::NoData
       @autosend_delay = nil
       @autologin_delay = nil
       @should_send = Channel(Nil).new
-      @disconnect_timeout = 1.seconds
-      @last_response = Time.now
+      @disconnect_timeout = TimeDelta.new(1*SECOND)
+      @last_response = Time.new(0)
 
       @login_name = ""
       @login_salt = Crypto::Salt.new
 
       spawn { reading_fiber }
       spawn { sending_fiber }
-      spawn { auto_sending_fiber }
+      spawn { timed_fiber }
     end
 
     def save_hash
@@ -73,7 +75,7 @@ module MySync
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
-      @last_response = Time.now
+      @last_response = @time.current
       # then pass to endpoint
       @endpoint.process_receive(@received_decrypted.slice)
     end
@@ -104,7 +106,7 @@ module MySync
         when AuthState::SendingLogin
           login_received(package) if @received_header.value == RIGHT_LOGIN_SIGN
         when AuthState::SendingPass
-          pass_received(package) if @received_header.value == RIGHT_SIGN
+          pass_received(package) if @received_header.value == RIGHT_PASS_SIGN
         when AuthState::LoggedIn
           package_received (package) if @received_header.value == RIGHT_SIGN
         else
@@ -117,7 +119,7 @@ module MySync
     private def sending_fiber
       loop do
         @should_send.receive
-        if Time.now - @last_response > @disconnect_timeout && @auth_state.restartable?
+        if @time.current - @last_response > @disconnect_timeout && @auth_state.restartable?
           @auth_state = AuthState::SendingLogin
         end
         # p "sending #{@auth_state}"
@@ -141,14 +143,16 @@ module MySync
       end
     end
 
-    private def auto_sending_fiber
-      loop do
-        if delay = get_autodelay
-          t = Time.now
+    private def timed_fiber
+      delay = 0
+      every(TICK) do
+        @time.current += 1
+        if delay <= 0
+          next unless newdelay = get_autodelay
+          delay = newdelay
           @should_send.send nil
-          sleep({delay - (Time.now - t), 0.01.seconds}.max)
         else
-          sleep 0.1
+          delay -= 1
         end
       end
     end
@@ -180,12 +184,11 @@ module MySync
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
-      @last_response = Time.now
+      @last_response = @time.current
       if @received_decrypted.slice[0] == 1
         # all is fine, start listening
         # data = Bytes.new(@received_decrypted.size - Crypto::SymmetricKey.size - 1)
         # data.copy_from @received_decrypted.slice[1 + Crypto::SymmetricKey.size, data.size]
-        @last_response = Time.now
         @auth_state = AuthState::LoggedIn
         @endpoint.reset
       else
@@ -243,12 +246,12 @@ module MySync
       return if package.size < Crypto::OVERHEAD_SYMMETRIC
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @login_key, input: package, output: @received_decrypted.slice)
+      @last_response = @time.current
       if @received_decrypted.slice[0] == 1
         # all is fine, copy symmetric_key and data to output and start listening
         @login_key.reroll
         @symmetric_key.to_slice.copy_from @received_decrypted.slice[1, Crypto::SymmetricKey.size]
         @login_salt = Crypto::Salt.from_bytes @received_decrypted.slice[1 + Crypto::SymmetricKey.size, Crypto::Salt.size]
-        @last_response = Time.now
         @auth_state = AuthState::SendingPass
         send_manually
       else
