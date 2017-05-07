@@ -143,7 +143,7 @@ it "works with client on another port" do
 end
 
 it "works with restarted client on same port" do
-  sleep(0.5.seconds)
+  srv.skip_time 1000
   SpecLogger.dump_events
   cli.verbose = true
   srv_inst.verbose = false
@@ -156,6 +156,8 @@ it "works with restarted client on same port" do
   answer = one_login(udp_cli)
   one_exchange(cli, udp_cli)
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
+  srv.skip_time 1000
+  SpecLogger.dump_events
 end
 
 it "rejects wrong login" do
@@ -163,19 +165,18 @@ it "rejects wrong login" do
   answer = one_login(udp_cli)
   answer.should be_false
   udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
-  SpecLogger.dump_events.should eq ["SERVER: failed to log in: testuser"]
-  sleep(0.5.seconds)
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: failed to log in: testuser"]
+  srv.skip_time 1000
   SpecLogger.dump_events
 end
 
-pending "passwords actually hashed" do
+it "passwords actually hashed" do
   login = "slowuser"
   pass = "somepass"
   salt = Crypto::Salt.new
   hash = Crypto::SecretKey.new(password: pass, salt: salt)
   users.add_user(login, salt, hash)
   udp_cli.login(public_key, login, pass)
-
   answer = one_login(udp_cli)
   SpecLogger.dump_events.count("SERVER: logged in: slowuser").should be > 0
   answer.should be_true
@@ -186,18 +187,20 @@ end
 it "rejects wrong password" do
   users.registration_open = true
   udp_cli.login(public_key, "user1", hash2)
+  p "1"
   answer = one_login(udp_cli)
+  p "2"
   answer.should be_false
   udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
   SpecLogger.dump_events.count("SERVER: logged in: user1").should be > 0
   one_exchange(cli, udp_cli)
   SpecLogger.dump_events.size.should eq 0
-  sleep(0.5.seconds)
+  srv.skip_time 1000
   SpecLogger.dump_events
   users.registration_open = false
 end
 
-it "allows auto-registration" do
+pending "allows auto-registration" do
   users.registration_open = true
   login = "newuser"
   pass = "nopass"
@@ -215,7 +218,7 @@ end
 N1b = 100
 N2b = 100
 pending "process multiple connections" do
-  sleep(0.5.seconds)
+  srv.skip_time 1000
   SpecLogger.dump_events
   hashes = (0...N1b).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
   srv.disconnect_delay = 5*60
@@ -241,3 +244,4 @@ end
 
 # cleanup to prevent disconnect messages in next specs
 srv.skip_time(1000)
+SpecLogger.dump_events
