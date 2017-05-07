@@ -25,6 +25,7 @@ module MySync
     @login_pass : (Crypto::SecretKey | String | Nil) = nil
     @login_name = ""
     @login_salt = Crypto::Salt.new
+    @login_key = Crypto::SymmetricKey.new
 
     def save_hash
       case @login_pass

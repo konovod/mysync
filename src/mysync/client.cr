@@ -23,7 +23,7 @@ module MySync
 
     def initialize(@endpoint : EndPoint, @address : Address)
       @socket = UDPSocket.new
-      @socket.read_timeout = CrystalTime::Span.new(0, 0, 1)
+      @socket.read_timeout = 1.seconds
       @socket.connect @address
       @raw_received = Bytes.new(MAX_RAW_SIZE)
       @received_decrypted = Package.new(MAX_PACKAGE_SIZE)
@@ -34,7 +34,6 @@ module MySync
       @endpoint.rpc_connection = CannonInterface.new(@endpoint, @rpc_manager)
       @endpoint.sync_lists = SyncListsManager.new
       @time = @endpoint.time
-      @login_key = Crypto::SymmetricKey.new
       @symmetric_key = Crypto::SymmetricKey.new
       @autosend_delay = nil
       @autologin_delay = nil
