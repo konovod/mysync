@@ -98,12 +98,9 @@ module MySync
 
     private def pass_received(package : Bytes)
       # first it decrypts and check
-      p "step1"
       return if package.size <= Crypto::OVERHEAD_SYMMETRIC
-      p "step2"
       @received_decrypted.size = package.size - Crypto::OVERHEAD_SYMMETRIC
       return unless Crypto.decrypt(key: @symmetric_key, input: package, output: @received_decrypted.slice)
-      p "step3"
       debug_str "pass response: #{@received_decrypted.slice[0]}"
       @last_response = @time.current
       if @received_decrypted.slice[0] == 1
