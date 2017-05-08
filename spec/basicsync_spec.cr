@@ -202,14 +202,13 @@ it "rejects wrong password" do
   users.registration_open = false
 end
 
-p srv.n_clients
-p "---------------------------------------"
 it "allows auto-registration" do
   users.registration_open = true
   login = "newuser"
   pass = "nopass"
   udp_cli.login(public_key, login, pass)
   answer = one_login(udp_cli, srv)
+  # can't beleive this messages, need better system
   p SpecLogger.dump_events
   # SpecLogger.dump_events.count("SERVER: logged in: newuser").should be > 0
   answer.should be_true
@@ -250,7 +249,7 @@ it "process multiple connections" do
   # t = clients.sum &.stat_pingtime
   # us = (t*1000000.0 / N1b / N1b).to_i
   # p "time per packet: #{us} us"
-  p "time per packet: #{t.ticks/10} us"
+  p "time per packet: #{t.total_milliseconds*1000} us"
 end
 
 # cleanup to prevent disconnect messages in next specs
