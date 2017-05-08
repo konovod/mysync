@@ -249,6 +249,7 @@ it "process multiple connections" do
   # t = clients.sum &.stat_pingtime
   # us = (t*1000000.0 / N1b / N1b).to_i
   # p "time per packet: #{us} us"
+  p "time in ticks: #{(clients.sum &.stat_pingtime) / N1b}"
   p "time per packet: #{t.total_milliseconds*1000} us"
 end
 
