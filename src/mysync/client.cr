@@ -18,7 +18,7 @@ module MySync
     @time : TimeProvider
 
     def debug_str(string)
-      p string
+      puts "cli: #{string}"
     end
 
     def initialize(@endpoint : EndPoint, @address : Address)
@@ -77,15 +77,22 @@ module MySync
     }
     private def reading_fiber
       loop do
+        debug_str "zzz"
         size, ip = try_receive
-        next if size < MIN_RAW_SIZE
-        next if size > MAX_RAW_SIZE
+        if size < MIN_RAW_SIZE
+          debug_str "size too small #{size}"
+          next
+        end
+        if size > MAX_RAW_SIZE
+          debug_str "size too big #{size}"
+          next
+        end
         package = @raw_received[4, size - 4]
         unless GOOD_SIGN[@auth_state] == @received_header.value
-          debug_str "cli recv failed: #{@auth_state} => #{@received_header.value} need #{GOOD_SIGN[@auth_state]}"
+          debug_str "recv wrong header: #{@auth_state} => #{@received_header.value} need #{GOOD_SIGN[@auth_state]}"
           return
         end
-        debug_str "cli recv #{@auth_state} "
+        debug_str "recvd at #{@auth_state}"
         case @auth_state
         when AuthState::SendingLogin
           login_received(package)
@@ -94,7 +101,6 @@ module MySync
         when AuthState::LoggedIn
           package_received (package)
         else
-          debug_str "cli failed #{@auth_state}"
           # ignored
         end
       end

@@ -159,7 +159,7 @@ it "rpc without response with loses #2" do
   SpecLogger.dump_events.should eq ["SERVER: no_answer test1", "SERVER: no_answer test2"]
 end
 
-pending "rpc with response" do
+it "rpc with response" do
   done = Channel(Nil).new
   udp_cli.debug_loss = true
   srv.debug_loss = true

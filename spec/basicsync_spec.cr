@@ -220,8 +220,8 @@ it "allows auto-registration" do
   SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received", "CLIENT: sending", "CLIENT: received"]
 end
 
-N1b =   15
-N2b = 1000
+N1b = 100
+N2b = 100
 it "process multiple connections" do
   skip_time({srv}, 1000)
   SpecLogger.dump_events

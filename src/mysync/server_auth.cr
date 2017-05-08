@@ -9,7 +9,7 @@ module MySync
   class GameConnection
     private def process_password_packet
       # first it decrypts and check
-      debug_str "srv: process_password_packet"
+      debug_str "process_password_packet"
       unless auser = @user
         debug_str "USER DONT MATCH"
         return
@@ -42,9 +42,12 @@ module MySync
     end
 
     private def process_login_packet
-      debug_str "srv: process_login_packet"
+      debug_str "process_login_packet"
       # here is encrypted packet with client public key as additional data
-      return if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
+      if @received.size < Crypto::PublicKey.size + Crypto::OVERHEAD_SYMMETRIC
+        debug_str "size dont match"
+        return
+      end
       @received_decrypted.size = @received.size - Crypto::OVERHEAD_SYMMETRIC - Crypto::PublicKey.size
       akey = Crypto::PublicKey.from_bytes @received.slice[0, Crypto::PublicKey.size]
       login_key = @server.gen_key(akey)
@@ -53,9 +56,10 @@ module MySync
                       input: @received.slice[Crypto::PublicKey.size, @received.size - Crypto::PublicKey.size],
                       output: @received_decrypted.slice)
       alogin = String.new(@received_decrypted.slice)
+      debug_str "decoded login: #{alogin}"
       auser = @server.authorize_1(alogin)
       unless auser
-        debug_str "srv: incorrect login"
+        debug_str "incorrect login"
         send_response wrong_login_response(alogin), key: login_key, sign: RIGHT_LOGIN_SIGN
         login_key.reroll # wipe it
         return
