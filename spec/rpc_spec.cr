@@ -186,6 +186,7 @@ it "rpc with response" do
   p "3"
   sleep 0.2
   p "4"
+  # raise ""
   # skip_time({udp_cli, srv}, 100)
   done.receive
   TimeEmulation.stop

@@ -90,7 +90,7 @@ module MySync
         package = @raw_received[4, size - 4]
         unless GOOD_SIGN[@auth_state] == @received_header.value
           debug_str "recv wrong header: #{@auth_state} => #{@received_header.value} need #{GOOD_SIGN[@auth_state]}"
-          return
+          next
         end
         debug_str "recvd at #{@auth_state}"
         case @auth_state
