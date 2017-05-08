@@ -24,7 +24,6 @@ module MySync
       @single_buffer = Bytes.new(MAX_RAW_SIZE)
       @header = @single_buffer.to_unsafe.as(UInt32*)
       spawn { listen_fiber }
-      spawn { timed_fiber }
     end
 
     def on_connecting(ip : Address)
@@ -94,11 +93,9 @@ module MySync
       end
     end
 
-    private def timed_fiber
-      every(TICK) do
-        @time.current += 1
-        cleanup_connections
-      end
+    def timed_process
+      @time.current += 1
+      cleanup_connections
     end
   end
 end

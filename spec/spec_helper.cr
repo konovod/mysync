@@ -124,11 +124,6 @@ class TestServer < MySync::GameServer
       SpecLogger.log_srv "connection complete"
     end
   end
-
-  def skip_time(nticks : MySync::TimeDelta)
-    @time.current += MySync::Time.new(nticks)
-    sleep(MySync::TICK*2)
-  end
 end
 
 class TestClientEndpoint < MySync::EndPoint
@@ -161,35 +156,73 @@ class TestClientEndpoint < MySync::EndPoint
   end
 end
 
-def one_exchange(cli, udp_cli)
-  ans = Channel(Nil).new
-  spawn do
-    sleep 0.05.seconds
-    ans.send nil
-  end
-  cli.wait_answer = ans
-  udp_cli.send_manually
-  ans.receive
-  cli.wait_answer = nil
-end
-
-def one_login(udp_cli)
-  udp_cli.autologin_delay = 10
-  answer = udp_cli.wait_login
-  udp_cli.autologin_delay = nil
-  return answer
-end
-
 class TestingClient < MySync::UDPGameClient
   def endpoint=(point)
     @endpoint = point
   end
 end
 
-def do_login(udp_cli, users, public_key, login)
+class TimeEmulation
+  @@active = false
+  @@stopped = Channel(Nil).new
+
+  def self.timed_fiber(udp_cli, srv)
+    loop do
+      unless @@active
+        @@stopped.send(nil)
+        break
+      end
+      udp_cli.timed_process
+      srv.timed_process
+      Fiber.yield
+    end
+  end
+
+  def self.start(udp_cli, srv)
+    @@active = true
+    spawn { timed_fiber(udp_cli, srv) }
+    Fiber.yield
+  end
+
+  def self.stop
+    @@active = false
+    @@stopped.receive
+  end
+end
+
+def one_exchange(cli, udp_cli, srv)
+  # ans = Channel(Nil).new
+  # cli.wait_answer = ans
+  udp_cli.send_manually
+  2.times do
+    Fiber.yield
+    udp_cli.timed_process
+    srv.timed_process
+  end
+  # ans.receive
+  # cli.wait_answer = nil
+end
+
+def skip_time(srv, n)
+  n.times do
+    srv.timed_process
+  end
+  Fiber.yield
+end
+
+def one_login(udp_cli, srv)
+  udp_cli.autologin_delay = 10
+  TimeEmulation.start(udp_cli, srv)
+  answer = udp_cli.wait_login
+  TimeEmulation.stop
+  udp_cli.autologin_delay = nil
+  return answer
+end
+
+def do_login(udp_cli, srv, users, public_key, login)
   hash = users.demo_add_user(login, login)
   udp_cli.login(public_key, login, hash)
-  one_login(udp_cli)
+  one_login(udp_cli, srv)
 end
 
 def make_test_pair(crunch)

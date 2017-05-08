@@ -18,7 +18,7 @@ module MySync
     @time : TimeProvider
 
     def debug_str(string)
-      # p string
+      p string
     end
 
     def initialize(@endpoint : EndPoint, @address : Address)
@@ -43,7 +43,6 @@ module MySync
 
       spawn { reading_fiber }
       spawn { sending_fiber }
-      spawn { timed_fiber }
     end
 
     private def package_received(package : Bytes)
@@ -128,17 +127,16 @@ module MySync
       end
     end
 
-    private def timed_fiber
-      delay = 0
-      every(TICK) do
-        @time.current += 1
-        if delay <= 0
-          next unless newdelay = get_autodelay
-          delay = newdelay
-          @should_send.send nil
-        else
-          delay -= 1
-        end
+    @cur_delay = 0
+
+    def timed_process
+      @time.current += 1
+      if @cur_delay <= 0
+        return unless newdelay = get_autodelay
+        @cur_delay = newdelay
+        @should_send.send nil
+      else
+        @cur_delay -= 1
       end
     end
 
