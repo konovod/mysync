@@ -104,9 +104,11 @@ it "gather stats for packets" do
   srv_inst.verbose = false
   cur = Time.now
   cli.benchmark = 1000
-  cli.benchmark_udp = udp_cli
-  udp_cli.send_manually
+  udp_cli.autosend_delay = 1
+  TimeEmulation.start({udp_cli, srv})
   cli.benchmark_complete.receive
+  TimeEmulation.stop
+  udp_cli.autosend_delay = nil
   pp (Time.now - cur).to_f # *1000 / 1000
   pp cli.stat_losses
   pp cli.stat_pingtime*1000
@@ -118,9 +120,9 @@ it "disconnects old clients" do
   SpecLogger.dump_events
   SpecLogger.dump_events.size.should eq 0
   srv.n_clients.should eq 1
-  skip_time(srv, 5)
+  skip_time({srv}, 5)
   srv.n_clients.should eq 1
-  skip_time(srv, 6)
+  skip_time({srv}, 6)
   srv.n_clients.should eq 0
   SpecLogger.dump_events.should eq ["SERVER: user disconnected: person2", "SERVER: connection complete"]
 end
@@ -145,7 +147,7 @@ it "works with client on another port" do
 end
 
 it "works with restarted client on same port" do
-  skip_time(srv, 1000)
+  skip_time({srv}, 1000)
   SpecLogger.dump_events
   cli.verbose = true
   srv_inst.verbose = false
@@ -158,7 +160,7 @@ it "works with restarted client on same port" do
   answer = one_login(udp_cli, srv)
   one_exchange(cli, udp_cli, srv)
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
-  skip_time(srv, 1000)
+  skip_time({srv}, 1000)
   SpecLogger.dump_events
 end
 
@@ -168,7 +170,7 @@ it "rejects wrong login" do
   answer.should be_false
   udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
   SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: failed to log in: testuser"]
-  skip_time(srv, 1000)
+  skip_time({srv}, 1000)
   SpecLogger.dump_events
 end
 
@@ -195,7 +197,7 @@ it "rejects wrong password" do
   SpecLogger.dump_events.count("SERVER: logged in: user1").should be > 0
   one_exchange(cli, udp_cli, srv)
   SpecLogger.dump_events.count("CLIENT: received").should eq 0
-  skip_time(srv, 1000)
+  skip_time({srv}, 1000)
   SpecLogger.dump_events
   users.registration_open = false
 end
@@ -219,35 +221,38 @@ it "allows auto-registration" do
   SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received", "CLIENT: sending", "CLIENT: received"]
 end
 
-N1b =  15
-N2b = 100
+N1b =   15
+N2b = 1000
 it "process multiple connections" do
-  skip_time(srv, 1000)
+  skip_time({srv}, 1000)
   SpecLogger.dump_events
   hashes = (0...N1b).map { |i| users.demo_add_user("benchuser#{i}", "pass") }
   srv.disconnect_delay = 5*60
   clients = [] of TestClientEndpoint
+  udps = [] of MySync::UDPGameClient | TestServer
   N1b.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
     do_login(audp_cli, srv, users, public_key, "basicbench#{i}")
     acli.benchmark = N2b
-    acli.benchmark_udp = audp_cli
+    audp_cli.autosend_delay = 1
     clients << acli
+    udps << audp_cli
   end
-  # TimeEmulation.start
-  clients.each do |acli|
-    acli.benchmark_udp.not_nil!.send_manually
-  end
+  udps << srv
+  start = Time.now
+  TimeEmulation.start(udps)
   clients.each do |acli|
     acli.benchmark_complete.receive
   end
-  # TimeEmulation.stop
-  t = clients.sum &.stat_pingtime
-  us = (t*1000000.0 / N1b / N1b).to_i
-  p "time per packet: #{us} us"
+  TimeEmulation.stop
+  t = (Time.now - start) / N1b / N2b
+  # t = clients.sum &.stat_pingtime
+  # us = (t*1000000.0 / N1b / N1b).to_i
+  # p "time per packet: #{us} us"
+  p "time per packet: #{t.ticks/10} us"
 end
 
 # cleanup to prevent disconnect messages in next specs
-skip_time(srv, 1000)
+skip_time({srv}, 1000)
 SpecLogger.dump_events

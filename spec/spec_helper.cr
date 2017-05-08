@@ -131,9 +131,7 @@ class TestClientEndpoint < MySync::EndPoint
   set_remote_sync TestServerOutput
 
   property benchmark : Int32 = 0
-  property benchmark_udp : MySync::UDPGameClient?
   getter benchmark_complete = Channel(Nil).new
-  property wait_answer : Channel(Nil)?
   property verbose : Bool = true
 
   def on_received_package
@@ -141,13 +139,7 @@ class TestClientEndpoint < MySync::EndPoint
     if @benchmark > 0
       # p "received #{@benchmark}"
       @benchmark -= 1
-      if @benchmark == 0
-        @benchmark_complete.send(nil)
-      else
-        @benchmark_udp.not_nil!.send_manually
-      end
-    elsif w = @wait_answer
-      w.send(nil)
+      @benchmark_complete.send(nil) if @benchmark == 0
     end
   end
 
@@ -166,21 +158,20 @@ class TimeEmulation
   @@active = false
   @@stopped = Channel(Nil).new
 
-  def self.timed_fiber(udp_cli, srv)
+  def self.timed_fiber(items)
     loop do
       unless @@active
         @@stopped.send(nil)
         break
       end
-      udp_cli.timed_process
-      srv.timed_process
+      items.each &.timed_process
       Fiber.yield
     end
   end
 
-  def self.start(udp_cli, srv)
+  def self.start(items)
     @@active = true
-    spawn { timed_fiber(udp_cli, srv) }
+    spawn { timed_fiber(items) }
     Fiber.yield
   end
 
@@ -191,28 +182,20 @@ class TimeEmulation
 end
 
 def one_exchange(cli, udp_cli, srv)
-  # ans = Channel(Nil).new
-  # cli.wait_answer = ans
   udp_cli.send_manually
-  2.times do
-    Fiber.yield
-    udp_cli.timed_process
-    srv.timed_process
-  end
-  # ans.receive
-  # cli.wait_answer = nil
+  skip_time({udp_cli, srv}, 2)
 end
 
-def skip_time(srv, n)
+def skip_time(items, n)
   n.times do
-    srv.timed_process
+    Fiber.yield
+    items.each &.timed_process
   end
-  Fiber.yield
 end
 
 def one_login(udp_cli, srv)
   udp_cli.autologin_delay = 10
-  TimeEmulation.start(udp_cli, srv)
+  TimeEmulation.start({udp_cli, srv})
   answer = udp_cli.wait_login
   TimeEmulation.stop
   udp_cli.autologin_delay = nil
