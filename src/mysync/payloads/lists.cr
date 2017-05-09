@@ -56,6 +56,8 @@ module MySync
     abstract def item_removed(item)
     abstract def item_updated(item, data)
 
+    abstract def initialize(time : TimeProvider)
+
     def check_fading
       @last_updated.reject! do |id, atime|
         flag = @time.delta(atime) < -fading_delay

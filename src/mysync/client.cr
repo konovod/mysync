@@ -112,7 +112,7 @@ module MySync
         if @time.current - @last_response > @disconnect_timeout && @auth_state.restartable?
           @auth_state = AuthState::SendingLogin
         end
-        debug_str "cli sending #{@auth_state}"
+        debug_str "sending at #{@auth_state}"
         case @auth_state
         when AuthState::SendingLogin
           send_login

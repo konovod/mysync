@@ -134,18 +134,19 @@ class ServerBulletsList < MySync::ServerSyncList
   end
 end
 
-cli_list = ClientPlayersList.new
+cli, udp_cli, srv, public_key, users = make_test_pair(3)
+
+cli_list = ClientPlayersList.new(cli.time)
 srv_list = ServerPlayersList.new
-cli_list2 = ClientBulletsList.new
+cli_list2 = ClientBulletsList.new(cli.time)
 srv_list2 = ServerBulletsList.new
 
-cli, udp_cli, srv, public_key, users = make_test_pair(3)
 cli.sync_lists << cli_list
 srv.sync_lists << srv_list
 cli.sync_lists << cli_list2
 srv.sync_lists << srv_list2
 
-do_login(udp_cli, users, public_key, "lists")
+do_login(udp_cli, srv, users, public_key, "lists")
 srv_inst = srv.test_endpoint.not_nil!
 
 it "starts empty" do
@@ -155,12 +156,12 @@ end
 
 it "syncs added elements" do
   srv_list.new_player("test", 99)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.size.should eq 1
   cli_list.players[0].name.should eq "test"
   cli_list.players[0].hp.should eq 99
   srv_list.new_player("test2", 98)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.size.should eq 2
   cli_list.players[1].name.should eq "test2"
   cli_list.players[1].hp.should eq 98
@@ -168,7 +169,7 @@ end
 
 it "syncs deleting elements" do
   srv_list.delete_player(srv_list.all_players[0])
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.size.should eq 1
   cli_list.players[0].name.should eq "test2"
 end
@@ -177,7 +178,7 @@ it "syncs updating elements" do
   pl1 = srv_list.all_players[0]
   pl1.hp = 50
   cli_list.players[0].hp.should_not eq 50
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players[0].hp.should eq 50
 end
 
@@ -186,7 +187,7 @@ it "use delta for updating elements" do
   old = pl1.name
   pl1.name = "me"
   cli_list.players[0].name.should_not eq "me"
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players[0].name.should_not eq "me"
   cli_list.players[0].name = old
   pl1.name = old
@@ -196,18 +197,18 @@ it "syncs adding in case of packets loss" do
   old = srv_list.all_players[0].name
   srv_list.new_player("test3", 99)
   srv.debug_loss = true
-  one_exchange(cli, udp_cli)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
+  one_exchange(cli, udp_cli, srv)
   udp_cli.debug_loss = true
   srv_list.new_player("test4", 99)
-  one_exchange(cli, udp_cli)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.size.should eq 1
   srv.debug_loss = false
   udp_cli.debug_loss = false
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.size.should eq 3
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players.map(&.name).sort.should eq ["test3", "test4", old].sort
 end
 
@@ -216,47 +217,47 @@ it "syncs deleting in case of packets loss" do
   srv_list.delete_player(srv_list.all_players[0])
   cli_list.players[0].name.should eq name
   srv.debug_loss = true
-  one_exchange(cli, udp_cli)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players[0].name.should eq name
   srv.debug_loss = false
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players[0].name.should eq name
   cli_list.fading_delay = 1
   sleep 0.1
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list.players[0].name.should_not eq name
   cli_list.fading_delay = 60
 end
 
 it "syncing a second list" do
   srv_list2.new_bullet(99)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list2.bullets.size.should eq 1
   cli_list2.bullets[0].typ.should eq 99
   cli_list2.bullets[0].x.should eq 99
   srv_list2.new_bullet(98)
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list2.bullets.size.should eq 2
   cli_list2.bullets[0].typ.should eq 99
   cli_list2.bullets[1].typ.should eq 98
   cli_list2.bullets[1].y.should eq 98
   srv_list2.delete_bullet srv_list2.all_bullets[0]
-  one_exchange(cli, udp_cli)
+  one_exchange(cli, udp_cli, srv)
   cli_list2.bullets.size.should eq 1
   cli_list2.bullets[0].typ.should eq 98
   cli_list2.bullets[0].y.should eq 98
 end
 
-def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+def check_rates(n1, n2, nex, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli, srv)
   srv_list.all_players.clear
   srv_list2.all_bullets.clear
-  100.times { one_exchange(cli, udp_cli) }
+  100.times { one_exchange(cli, udp_cli, srv) }
   cli_list.players.size.should eq 0
   cli_list2.bullets.size.should eq 0
   n1.times { |i| srv_list.new_player("pretty long load#{i}", 99) }
   n2.times { |i| srv_list2.new_bullet(-i) }
-  nex.times { one_exchange(cli, udp_cli) }
+  nex.times { one_exchange(cli, udp_cli, srv) }
   {(1.0*cli_list.players.size / n1),
    (1.0*cli_list2.bullets.size / n2)}
 end
@@ -265,11 +266,11 @@ describe "process large lists" do
   it "initial conditions" do
     srv_list.all_players.clear
     srv_list2.all_bullets.clear
-    100.times { one_exchange(cli, udp_cli) }
+    100.times { one_exchange(cli, udp_cli, srv) }
     cli_list.players.size.should eq 0
     cli_list2.bullets.size.should eq 0
     2.times { |i| srv_list.new_player("todelete#{i}", 99) }
-    one_exchange(cli, udp_cli)
+    one_exchange(cli, udp_cli, srv)
     cli_list.players.size.should eq 2
     cli_list2.bullets.size.should eq 0
   end
@@ -278,7 +279,7 @@ describe "process large lists" do
     srv_list.delete_player outsider
     100.times { |i| srv_list.new_player("load#{i}", 99) }
     100.times { |i| srv_list2.new_bullet(-i) }
-    one_exchange(cli, udp_cli)
+    one_exchange(cli, udp_cli, srv)
     cli_list.players.count { |pl| pl.name == outsider.name }.should eq 0
     p "over players: #{1.0*srv_list.all_players.size / cli_list.players.size}"
     p "over bullets: #{1.0*srv_list2.all_bullets.size / cli_list2.bullets.size}"
@@ -288,20 +289,20 @@ describe "process large lists" do
     cli_list2.bullets.size.should be < 99
   end
   it "good coditions, rates 100%" do
-    r1, r2 = check_rates(100, 100, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1, r2 = check_rates(100, 100, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli, srv)
     r1.should eq 1
     r2.should eq 1
   end
   it "assymmetric good conditions, rates 100%" do
-    r1, r2 = check_rates(20, 500, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1, r2 = check_rates(20, 500, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli, srv)
     r1.should eq 1
     r2.should eq 1
-    r1, r2 = check_rates(500, 20, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1, r2 = check_rates(500, 20, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli, srv)
     r1.should eq 1
     r2.should eq 1
   end
   it "severe conditions" do
-    r1, r2 = check_rates(1000, 1000, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli)
+    r1, r2 = check_rates(1000, 1000, 30, srv_list, srv_list2, cli_list, cli_list2, cli, udp_cli, srv)
     pp r1, r2
     r1.should be > 0.5
     r2.should be > 0.5
@@ -310,7 +311,7 @@ end
 
 N1 = 100
 N2 =  10
-it "benchmark of lists" do
+pending "benchmark of lists" do
   # ensure there is enough payload in lists
   if srv_list.all_players.size < 1000
     (1000 - srv_list.all_players.size).times { |i| srv_list.new_player("pretty long load#{i}", 99) }
@@ -323,9 +324,9 @@ it "benchmark of lists" do
   N1.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 3))
-    acli.sync_lists << ClientPlayersList.new
-    acli.sync_lists << ClientBulletsList.new
-    do_login(audp_cli, users, public_key, "listsbench#{i}")
+    acli.sync_lists << ClientPlayersList.new(acli.time)
+    acli.sync_lists << ClientBulletsList.new(acli.time)
+    do_login(audp_cli, srv, users, public_key, "listsbench#{i}")
     acli.benchmark = N2
     # acli.fading_delay = 2.seconds
     acli.benchmark_udp = audp_cli
