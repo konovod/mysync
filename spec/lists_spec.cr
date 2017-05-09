@@ -310,7 +310,7 @@ describe "process large lists" do
 end
 
 N1 = 100
-N2 = 100
+N2 =  10
 it "benchmark of lists" do
   # ensure there is enough payload in lists
   if srv_list.all_players.size < 1000
