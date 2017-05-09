@@ -310,7 +310,7 @@ describe "process large lists" do
 end
 
 N1 = 100
-N2 =  10
+N2 = 100
 it "benchmark of lists" do
   # ensure there is enough payload in lists
   if srv_list.all_players.size < 1000
@@ -328,6 +328,7 @@ it "benchmark of lists" do
     acli.sync_lists << ClientPlayersList.new(acli.time)
     acli.sync_lists << ClientBulletsList.new(acli.time)
     do_login(audp_cli, srv, users, public_key, "listsbench#{i}")
+    print("#")
     acli.benchmark = N2
     audp_cli.autosend_delay = 1
     # acli.fading_delay = 2.seconds
