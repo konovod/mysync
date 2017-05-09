@@ -138,13 +138,18 @@ module MySync
     abstract def generate_message_partial(who : EndPoint, io : IO, max_pos : Int32)
     abstract def acked(who : EndPoint, id : Sequence, positive : Bool)
     # abstract def priority : Int32 TODO: lists prioritization
-
+    abstract def create_specifics(who : EndPoint)
   end
 
   module ServerSyncListImplementation(T, FullState, DeltaState)
     abstract def full_state(item : T) : FullState
     abstract def delta_state(item : T) : DeltaState
     abstract def iterate(who : EndPoint, &block : T -> Nil)
+
+    def create_specifics(who : EndPoint)
+      it = SyncListEndpointSpecific.new
+      who.sync_lists_serverside[self] = it
+    end
 
     private def actualize(who, state, id)
       data = state.items[id]? || PerItem.new.tap { |it| state.items[id] = it }
@@ -154,7 +159,6 @@ module MySync
       end
     end
 
-    # TODO: sort according to time? total mechanism of overflow processing
     def full_message_accepted(who : MySync::EndPoint)
       state = who.sync_lists_serverside[self]
       state.items.reject! { |id, value| state.cur_deleted.includes? id }
@@ -162,9 +166,7 @@ module MySync
     end
 
     def generate_message(who : MySync::EndPoint, io : IO)
-      state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
-        who.sync_lists_serverside[self] = it
-      end
+      state = who.sync_lists_serverside[self]
       old_pos = io.pos
       # addition\update messages
       state.cur_updated.clear
@@ -206,9 +208,7 @@ module MySync
     end
 
     def acked(who : EndPoint, seqid : Sequence, positive : Bool)
-      state = who.sync_lists_serverside[self]? || SyncListEndpointSpecific.new.tap do |it|
-        who.sync_lists_serverside[self] = it
-      end # TODO - is it required?
+      state = who.sync_lists_serverside[self]
       state.items.each do |itemid, x|
         next if x.acked
         next unless x.first_sent
@@ -268,6 +268,11 @@ module MySync
       when ClientSyncList
         @client_lists << item
       end
+    end
+
+    def create_specifics(who)
+      @server_lists.each { |list| list.create_specifics who }
+      who.sync_lists = self
     end
 
     def process_received(io : IO)
