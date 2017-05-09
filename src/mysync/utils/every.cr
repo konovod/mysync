@@ -4,10 +4,9 @@ def every(timespan, &block)
     passed = Time.now - tick
     while passed > timespan
       yield()
-      Fiber.yield # prevent monopolization
       passed -= timespan
       tick += timespan
     end
-    sleep({timespan - passed, 0.01.seconds}.max) # TODO - check if 0 passes specs
+    sleep({timespan - passed, 0.seconds}.max)
   end
 end
