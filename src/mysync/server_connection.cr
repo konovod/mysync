@@ -57,17 +57,15 @@ module MySync
       # then pass to endpoint
       @last_message = @server.time.current
       point.process_receive(@received_decrypted.slice)
-      send_response point.process_sending
     end
 
-    private def send_response(data : Bytes, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
-      spawn do
-        @can_send.receive
-        actual_send_response(data, sign: sign, key: key)
+    def process_sending
+      if point = @endpoint
+        send_response point.process_sending
       end
     end
 
-    private def actual_send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
+    private def send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
       # then encrypt
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
       @header.value = sign

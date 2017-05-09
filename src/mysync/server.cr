@@ -95,7 +95,7 @@ module MySync
 
     private def process_sending
       @connections.each do |addr, conn|
-        conn.can_send.send(nil) unless conn.can_send.full?
+        conn.process_sending
       end
     end
 

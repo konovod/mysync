@@ -9,7 +9,7 @@ it "test login" do
   udp_cli.login(public_key, "user1", hash1)
   answer = one_login(udp_cli, srv)
   answer.should be_true
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user1"]
+  SpecLogger.dump_events[0..1].should eq ["SERVER: adding connection", "SERVER: logged in: user1"]
 end
 
 srv_inst = srv.test_endpoint.not_nil!
@@ -27,7 +27,7 @@ it "can login again" do
   udp_cli.login(public_key, "user2", hash2)
   answer = one_login(udp_cli, srv)
   answer.should be_true
-  SpecLogger.dump_events.should eq ["SERVER: logged in: user2"]
+  SpecLogger.dump_events.should contain "SERVER: logged in: user2"
 end
 srv_inst = srv.test_endpoint.not_nil!
 
@@ -133,8 +133,9 @@ it "client relogins on timeout" do
   cli.verbose = true
   srv_inst.verbose = true
   one_login(udp_cli, srv)
+  SpecLogger.dump_events[0..1].should eq ["SERVER: adding connection", "SERVER: logged in: user2"]
   one_exchange(cli, udp_cli, srv)
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received"]
 end
 
 it "works with client on another port" do
@@ -142,8 +143,9 @@ it "works with client on another port" do
   audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 0))
   audp_cli.login(public_key, "user3", hash3)
   one_login(audp_cli, srv)
+  SpecLogger.dump_events[0..1].should eq ["SERVER: adding connection", "SERVER: logged in: user3"]
   one_exchange(acli, audp_cli, srv)
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user3", "CLIENT: sending", "CLIENT: received"]
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received", "CLIENT: received"]
 end
 
 it "works with restarted client on same port" do
@@ -158,8 +160,9 @@ it "works with restarted client on same port" do
   udp_cli.endpoint = acli
   udp_cli.login(public_key, "user2", hash2)
   answer = one_login(udp_cli, srv)
+  SpecLogger.dump_events[0..1].should eq ["SERVER: adding connection", "SERVER: logged in: user2"]
   one_exchange(cli, udp_cli, srv)
-  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user2", "CLIENT: sending", "CLIENT: received"]
+  SpecLogger.dump_events[0..1].should eq ["CLIENT: sending", "CLIENT: received"]
   skip_time({srv}, 1000)
   SpecLogger.dump_events
 end
@@ -218,6 +221,25 @@ it "allows auto-registration" do
   one_exchange(cli, udp_cli, srv)
   one_exchange(cli, udp_cli, srv)
   SpecLogger.dump_events.should eq ["CLIENT: sending", "CLIENT: received", "CLIENT: sending", "CLIENT: received"]
+end
+
+it "server sending rate can be set" do
+  cli.verbose = true
+  srv_inst = srv.test_endpoint.not_nil!
+  srv_inst.verbose = true
+  n = 5
+  srv.send_rate = n
+  one_exchange(cli, udp_cli, srv)
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received", "SERVER: sending", "CLIENT: received"]
+  (n - 1).times do
+    one_exchange(cli, udp_cli, srv)
+    SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received"]
+  end
+  one_exchange(cli, udp_cli, srv)
+  SpecLogger.dump_events.should eq ["CLIENT: sending", "SERVER: received", "SERVER: sending", "CLIENT: received"]
+  srv.send_rate = 1
+  cli.verbose = false
+  srv_inst.verbose = false
 end
 
 N1b = 100

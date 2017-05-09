@@ -183,7 +183,11 @@ end
 
 def one_exchange(cli, udp_cli, srv)
   udp_cli.send_manually
-  skip_time({udp_cli, srv}, 2)
+  Fiber.yield
+  srv.timed_process
+  Fiber.yield
+  udp_cli.timed_process
+  # skip_time({udp_cli, srv}, 1)
 end
 
 def skip_time(items, n)
