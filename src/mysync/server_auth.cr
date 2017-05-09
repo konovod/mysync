@@ -61,7 +61,6 @@ module MySync
       unless auser
         debug_str "incorrect login"
         send_response wrong_login_response(alogin), key: login_key, sign: RIGHT_LOGIN_SIGN
-        login_key.reroll # wipe it
         return
       end
       @user = auser
@@ -73,7 +72,6 @@ module MySync
       response[1, Crypto::SymmetricKey.size].copy_from @symmetric_key.to_slice
       response[1 + Crypto::SymmetricKey.size, Crypto::Salt.size].copy_from auser[:salt].to_slice
       send_response response, key: login_key, sign: RIGHT_LOGIN_SIGN
-      login_key.reroll # wipe it
     end
 
     private def wrong_login_response(alogin)

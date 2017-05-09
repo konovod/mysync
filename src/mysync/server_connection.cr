@@ -21,6 +21,7 @@ module MySync
     getter last_message : Time
     getter endpoint : EndPoint?
     getter user : AuthData?
+    getter can_send = Channel(Nil).new
 
     def debug_str(string)
       # puts "srv: #{string}"
@@ -44,8 +45,6 @@ module MySync
       a.requested_disconnect
     end
 
-    # TODO - send packages asynchronously?
-
     private def process_data_packet
       return unless point = @endpoint # connection must be already established
       # first it decrypts and check
@@ -61,14 +60,19 @@ module MySync
       send_response point.process_sending
     end
 
-    private def send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
-      unless key
-        key = @symmetric_key
+    private def send_response(data : Bytes, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
+      spawn do
+        @can_send.receive
+        actual_send_response(data, sign: sign, key: key)
       end
+    end
+
+    private def actual_send_response(data, *, sign : UInt32 = RIGHT_SIGN, key : Crypto::SymmetricKey? = nil)
       # then encrypt
       @tosend.size = data.size + Crypto::OVERHEAD_SYMMETRIC + 4
       @header.value = sign
-      Crypto.encrypt(key: key, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      Crypto.encrypt(key: key || @symmetric_key, input: data, output: @tosend.slice[4, @tosend.size - 4])
+      key.reroll if key
       # then send back
       return if @server.debug_loss
       begin

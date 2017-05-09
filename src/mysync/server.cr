@@ -14,6 +14,7 @@ module MySync
     property debug_loss = false
     getter users : UsersStorage
     getter time = TimeProvider.new
+    property send_rate = 1
 
     def initialize(@users, @port : Int32, @secret_key : Crypto::SecretKey)
       @disconnect_delay = TimeDelta.new(1*SECOND)
@@ -92,9 +93,23 @@ module MySync
       end
     end
 
+    private def process_sending
+      @connections.each do |addr, conn|
+        conn.can_send.send(nil) unless conn.can_send.full?
+      end
+    end
+
+    @send_delay = 0
+
     def timed_process
       @time.current += 1
       cleanup_connections
+      if @send_delay <= 1
+        process_sending
+        @send_delay = @send_rate
+      else
+        @send_delay -= 1
+      end
     end
   end
 end
