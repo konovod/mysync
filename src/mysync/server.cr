@@ -51,9 +51,8 @@ module MySync
         begin
           conn2.execute
           on_disconnecting(ip, nil)
-          # TODO - return? why was it commented?
-          # rescue ex
-          #   on_disconnecting(ip, ex)
+        rescue ex
+          on_disconnecting(ip, ex)
         ensure
           @connections.delete(MySync.addr_hash(ip))
         end
