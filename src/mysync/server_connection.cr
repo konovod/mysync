@@ -23,7 +23,7 @@ module MySync
     getter user : AuthData?
 
     def debug_str(string)
-      puts "srv: #{string}"
+      # puts "srv: #{string}"
     end
 
     def initialize(@address : Address, @socket : UDPSocket,

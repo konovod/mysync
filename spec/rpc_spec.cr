@@ -52,13 +52,9 @@ end
 
 cli, udp_cli, srv, public_key, users = make_test_pair(1)
 do_login(udp_cli, srv, users, public_key, "rpc")
-srv_inst = srv.test_endpoint.not_nil!
 
 greeter = GreetClient.new cli.rpc_connection.not_nil!
 srv.rpc_manager.add GreetService.new
-
-helloer = FromServerClient.new srv_inst.rpc_connection.not_nil!
-cli.rpc_connection.manager.add FromServerService.new
 
 SpecLogger.dump_events
 
@@ -106,7 +102,6 @@ it "don't repeat old procedures" do
     # udp_cli.send_manually
     one_exchange(cli, udp_cli, srv)
   end
-  sleep 0.2
   10.times do
     one_exchange(cli, udp_cli, srv)
   end
@@ -150,7 +145,6 @@ it "rpc without response with loses #2" do
   5.times do
     one_exchange(cli, udp_cli, srv)
   end
-  sleep 0.2
   greeter.no_answer_without_response "test2"
   srv.debug_loss = false
   20.times do
@@ -165,35 +159,23 @@ it "rpc with response" do
   srv.debug_loss = true
   udp_cli.autosend_delay = 1
   udp_cli.autologin_delay = 1
-  TimeEmulation.start({udp_cli, srv})
+  # TimeEmulation.start({udp_cli, srv})
   spawn do
     greeter.greet("Alice").should eq "hello Alice"
-    p "wow"
     start = Time.now
     pong = greeter.ping Time.now
     finish = Time.now
     p "Response: #{finish - pong}"
     done.send nil
   end
-  # skip_time({udp_cli, srv}, 100)
-  p "1"
-  sleep 0.2
+  skip_time({udp_cli, srv}, 100)
   udp_cli.debug_loss = false
-  p "2"
-  sleep 0.2
-  # skip_time({udp_cli, srv}, 100)
+  skip_time({udp_cli, srv}, 100)
   srv.debug_loss = false
-  p "3"
-  sleep 0.2
-  p "4"
-  # raise ""
-  # skip_time({udp_cli, srv}, 100)
+  skip_time({udp_cli, srv}, 100)
   done.receive
-  TimeEmulation.stop
+  udp_cli.autosend_delay = nil
 end
-
-udp_cli.autosend_delay = nil
-sleep 0.2
 
 it "shrink large stream to single commands" do
   SpecLogger.dump_events
@@ -210,6 +192,10 @@ it "shrink large stream to single commands" do
 end
 
 it "send back from server" do
+  srv_inst = srv.test_endpoint.not_nil!
+  helloer = FromServerClient.new srv_inst.rpc_connection.not_nil!
+  cli.rpc_connection.manager.add FromServerService.new
+
   SpecLogger.dump_events
   helloer.hello_without_response "test"
   one_exchange(cli, udp_cli, srv)
@@ -221,6 +207,7 @@ pending "raises when message is too long" do
   # expect_raises(Exception) do
   SpecLogger.dump_events
   greeter.greet_without_response(String.new(Bytes.new(10000)))
+  # helloer.hello_without_response(String.new(Bytes.new(10000)))
   one_exchange(cli, udp_cli, srv)
   p SpecLogger.dump_events
   # end

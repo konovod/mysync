@@ -18,7 +18,7 @@ module MySync
     @time : TimeProvider
 
     def debug_str(string)
-      puts "cli: #{string}"
+      # puts "cli: #{string}"
     end
 
     def initialize(@endpoint : EndPoint, @address : Address)
