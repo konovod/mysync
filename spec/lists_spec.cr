@@ -310,8 +310,8 @@ describe "process large lists" do
 end
 
 N1 = 100
-N2 =  10
-pending "benchmark of lists" do
+N2 = 100
+it "benchmark of lists" do
   # ensure there is enough payload in lists
   if srv_list.all_players.size < 1000
     (1000 - srv_list.all_players.size).times { |i| srv_list.new_player("pretty long load#{i}", 99) }
@@ -321,6 +321,7 @@ pending "benchmark of lists" do
   end
   srv.disconnect_delay = 2*60
   clients = [] of TestClientEndpoint
+  udps = [] of MySync::UDPGameClient | TestServer
   N1.times do |i|
     acli = TestClientEndpoint.new
     audp_cli = MySync::UDPGameClient.new(acli, Socket::IPAddress.new("127.0.0.1", 12000 + 3))
@@ -328,17 +329,19 @@ pending "benchmark of lists" do
     acli.sync_lists << ClientBulletsList.new(acli.time)
     do_login(audp_cli, srv, users, public_key, "listsbench#{i}")
     acli.benchmark = N2
+    audp_cli.autosend_delay = 1
     # acli.fading_delay = 2.seconds
-    acli.benchmark_udp = audp_cli
     clients << acli
+    udps << audp_cli
   end
-  clients.each do |acli|
-    acli.benchmark_udp.not_nil!.send_manually
-  end
+  udps << srv
+  start = Time.now
+  TimeEmulation.start(udps)
   clients.each do |acli|
     acli.benchmark_complete.receive
   end
-  t = clients.sum &.stat_pingtime
-  us = (t*1000000.0 / N1 / N1).to_i
-  p "time per packet: #{us} us"
+  TimeEmulation.stop
+  t = (Time.now - start) / N1 / N2
+  p "time in ticks: #{(clients.sum &.stat_pingtime) / N1}"
+  p "time per packet: #{t.total_milliseconds*1000} us"
 end
