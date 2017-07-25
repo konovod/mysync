@@ -6,7 +6,7 @@ authors:
 
 dependencies:
   monocypher:
-    github: konovod/monocypher
+    github: konovod/monocypher.cr
   cannon:
     github: Papierkorb/cannon
 
