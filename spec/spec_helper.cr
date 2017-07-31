@@ -107,8 +107,10 @@ end
 class TestServer < MySync::GameServer
   property state = TestServerOutput.new
   getter test_endpoint : MySync::EndPoint?
+  property test_reject = false
 
-  def new_endpoint(user : MySync::UserID, time : MySync::TimeProvider) : MySync::EndPoint
+  def new_endpoint(user : MySync::UserID, time : MySync::TimeProvider) : MySync::EndPoint?
+    return nil if @test_reject
     TestUserContext.new(self, user % 16, "person#{user + 1}").tap { |pt| @test_endpoint = pt }
   end
 

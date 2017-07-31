@@ -177,6 +177,19 @@ it "rejects wrong login" do
   SpecLogger.dump_events
 end
 
+it "rejects logins at late stage" do
+  srv.test_reject = true
+  udp_cli.login(public_key, "user3", hash3)
+  answer = one_login(udp_cli, srv)
+  answer.should be_false
+  srv.test_reject = false
+  udp_cli.auth_state.should eq MySync::AuthState::LoginFailed
+  # TODO - proper logging
+  SpecLogger.dump_events.should eq ["SERVER: adding connection", "SERVER: logged in: user3"]
+  skip_time({srv}, 1000)
+  SpecLogger.dump_events
+end
+
 it "passwords actually hashed" do
   login = "slowuser"
   pass = "somepass"

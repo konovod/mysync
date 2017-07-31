@@ -40,6 +40,6 @@ module MySync
       end
     end
 
-    abstract def new_endpoint(user : UserID, time : TimeProvider) : EndPoint
+    abstract def new_endpoint(user : UserID, time : TimeProvider) : EndPoint?
   end
 end
