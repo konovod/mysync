@@ -48,7 +48,7 @@ module MySync
   # class representing syncronized list of entities on client
   # it receives packets and parse them to calls of `item_added`, `item_removed` and `item_updated`
   abstract class ClientSyncList
-    @last_updated = Hash(ItemID, Time).new
+    @last_updated = Hash(ItemID, GameTime).new
     property fading_delay : TimeDelta = 2*60
 
     abstract def process_received(io : IO)
@@ -111,7 +111,7 @@ module MySync
   # part with connection data
 
   private class PerItem
-    property last_sent = Time.new(0)
+    property last_sent = GameTime.new(0)
     property first_sent : Sequence?
     property acked = false
   end

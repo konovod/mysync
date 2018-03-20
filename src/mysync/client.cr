@@ -39,7 +39,7 @@ module MySync
       @autologin_delay = nil
       @should_send = Channel(Nil).new
       @disconnect_timeout = TimeDelta.new(1*SECOND)
-      @last_response = Time.new(0)
+      @last_response = GameTime.new(0)
 
       spawn { reading_fiber }
       spawn { sending_fiber }
@@ -75,6 +75,7 @@ module MySync
       AuthState::SendingPass  => RIGHT_PASS_SIGN,
       AuthState::LoggedIn     => RIGHT_SIGN,
     }
+
     private def reading_fiber
       loop do
         debug_str "zzz"
@@ -120,6 +121,8 @@ module MySync
           send_pass
         when AuthState::LoggedIn
           send_data
+        else
+          # TODO send nothing?
         end
       end
     end

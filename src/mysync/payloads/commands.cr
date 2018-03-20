@@ -69,7 +69,7 @@ module MySync
 
   class Command
     getter data
-    property sent : Time
+    property sent : GameTime
     getter id
 
     def initialize(@id : CmdID, @data : Bytes, atime)

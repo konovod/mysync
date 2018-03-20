@@ -18,7 +18,7 @@ module MySync
     getter socket
     getter received
     getter control
-    getter last_message : Time
+    getter last_message : GameTime
     getter endpoint : EndPoint?
     getter user : AuthData?
     getter can_send = Channel(Nil).new
@@ -39,7 +39,7 @@ module MySync
       @symmetric_key = Crypto::SymmetricKey.new
     end
 
-    def should_die(at_time : Time) : Bool
+    def should_die(at_time : GameTime) : Bool
       return true if at_time - @last_message > @server.disconnect_delay # timeout
       return false unless a = @endpoint                                 # not authentificated
       a.requested_disconnect

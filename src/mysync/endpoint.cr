@@ -29,7 +29,7 @@ module MySync
   # for remote we need only the fact that it passed
   abstract class EndPoint
     ackrecord RemoteAckData
-    ackrecord LocalAckData, sent : Time = Time.new(0), commands = [] of Command
+    ackrecord LocalAckData, sent : GameTime = GameTime.new(0), commands = [] of Command
 
     getter requested_disconnect : Bool
     property time
