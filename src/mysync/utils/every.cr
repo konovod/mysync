@@ -1,7 +1,7 @@
 def every(timespan, &block)
-  tick = Time.now
+  tick = Time.utc
   loop do
-    passed = Time.now - tick
+    passed = Time.utc - tick
     while passed > timespan
       yield()
       passed -= timespan

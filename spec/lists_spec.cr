@@ -46,11 +46,11 @@ class ServerPlayersList < MySync::ServerSyncList
   getter all_players = [] of Player
   @uids = MySync::IDS.new
 
-  def full_state(item)
+  def full_state(item) : PlayerAdder
     PlayerAdder.new(item.name, item.hp)
   end
 
-  def delta_state(item)
+  def delta_state(item) : PlayerUpdater
     PlayerUpdater.new(item.hp)
   end
 
@@ -107,11 +107,11 @@ class ServerBulletsList < MySync::ServerSyncList
   getter all_bullets = [] of Bullet
   @uids = MySync::IDS.new
 
-  def full_state(item)
+  def full_state(item) : BulletAdder
     BulletAdder.new(UInt8.new(item.typ), Int16.new(item.x), Int16.new(item.y))
   end
 
-  def delta_state(item)
+  def delta_state(item) : Nil
     nil
   end
 
@@ -311,7 +311,7 @@ end
 
 N1 = 100
 N2 = 100
-it "benchmark of lists" do
+pending "benchmark of lists" do
   # ensure there is enough payload in lists
   if srv_list.all_players.size < 1000
     (1000 - srv_list.all_players.size).times { |i| srv_list.new_player("pretty long load#{i}", 99) }
@@ -336,13 +336,13 @@ it "benchmark of lists" do
     udps << audp_cli
   end
   udps << srv
-  start = Time.now
+  start = Time.utc
   TimeEmulation.start(udps)
   clients.each do |acli|
     acli.benchmark_complete.receive
   end
   TimeEmulation.stop
-  t = (Time.now - start) / N1 / N2
+  t = (Time.utc - start) / N1 / N2
   p "time in ticks: #{(clients.sum &.stat_pingtime) / N1}"
   p "time per packet: #{t.total_milliseconds*1000} us"
 end

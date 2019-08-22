@@ -102,14 +102,14 @@ end
 it "gather stats for packets" do
   cli.verbose = false
   srv_inst.verbose = false
-  cur = Time.now
+  cur = Time.utc
   cli.benchmark = 1000
   udp_cli.autosend_delay = 1
   TimeEmulation.start({udp_cli, srv})
   cli.benchmark_complete.receive
   TimeEmulation.stop
   udp_cli.autosend_delay = nil
-  pp (Time.now - cur).to_f # *1000 / 1000
+  pp (Time.utc - cur).to_f # *1000 / 1000
   pp cli.stat_losses
   pp cli.stat_pingtime*1000
 end
@@ -274,13 +274,13 @@ it "process multiple connections" do
     udps << audp_cli
   end
   udps << srv
-  start = Time.now
+  start = Time.utc
   TimeEmulation.start(udps)
   clients.each do |acli|
     acli.benchmark_complete.receive
   end
   TimeEmulation.stop
-  t = (Time.now - start) / N1b / N2b
+  t = (Time.utc - start) / N1b / N2b
   # t = clients.sum &.stat_pingtime
   # us = (t*1000000.0 / N1b / N1b).to_i
   # p "time per packet: #{us} us"

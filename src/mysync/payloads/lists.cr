@@ -298,15 +298,14 @@ module MySync
       start = io.pos
       total = @server_lists.sum { |list| who.sync_lists_serverside[list].full_size }
       return if total == 0
-      rate = (FIXED_CALC*max_size / total).clamp(1, FIXED_CALC)
+      rate = (FIXED_CALC*max_size // total).clamp(1, FIXED_CALC)
       @server_lists.each do |list|
         last = list == @server_lists.last
         if last
           chunk = max_size - (io.pos - start)
         else
-          chunk = rate * who.sync_lists_serverside[list].full_size / FIXED_CALC
+          chunk = rate * who.sync_lists_serverside[list].full_size // FIXED_CALC
         end
-        # pp rate, chunk, rate * who.sync_lists_serverside[list].full_size / FIXED_CALC
         list.generate_message_partial who, io, io.pos + chunk
       end
       raise "partial list generation failed pos=#{io.pos} start=#{start} max_size=#{max_size}" if io.pos > start + max_size

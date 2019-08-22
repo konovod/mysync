@@ -24,7 +24,7 @@ class GreetService
   end
 
   def ping(client_time : Time) : Time
-    my_time = Time.now
+    my_time = Time.utc
     SpecLogger.log_srv "Client ping: #{my_time - client_time}"
     my_time
   end
@@ -162,9 +162,9 @@ it "rpc with response" do
   # TimeEmulation.start({udp_cli, srv})
   spawn do
     greeter.greet("Alice").should eq "hello Alice"
-    start = Time.now
-    pong = greeter.ping Time.now
-    finish = Time.now
+    start = Time.utc
+    pong = greeter.ping Time.utc
+    finish = Time.utc
     p "Response: #{finish - pong}"
     done.send nil
   end

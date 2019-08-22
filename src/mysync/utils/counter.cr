@@ -2,7 +2,7 @@ class EventCounter
   getter value = 0
 
   def initialize
-    @time = Time.now
+    @time = Time.utc
     @cur_value = 0
     @value = 0
   end
@@ -13,7 +13,7 @@ class EventCounter
   end
 
   private def update
-    now = Time.now
+    now = Time.utc
     if now - @time > 1.seconds
       @value = @cur_value
       @cur_value = 0

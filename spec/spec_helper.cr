@@ -77,7 +77,7 @@ class TestUsers < MySync::UsersStorage
   property registration_open = false
   getter data = Hash(String, MySync::UserData).new
 
-  def add_user(login : String, salt : Crypto::Salt, hash : Crypto::SecretKey)
+  def add_user(login : String, salt : Crypto::Salt, hash : Crypto::SecretKey) : MySync::UserData
     @data[login] = {salt: salt, hash: hash, id: @data.size}
   end
 
